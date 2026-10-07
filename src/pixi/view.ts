@@ -2,6 +2,7 @@ import { Container, type DestroyOptions, type Ticker } from 'pixi.js';
 
 import type { CanvasFactory } from '../render/face-cache.js';
 import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
+import { type FitMode, fitScale } from '../render/fit.js';
 import { MAX_FRAME_DT } from '../render/frame.js';
 import { stackDepth } from '../render/stack.js';
 import {
@@ -35,11 +36,13 @@ export interface PixiFlapViewOptions extends LayoutOptions {
 export class PixiFlapView extends Container {
     readonly target: RenderTarget;
     private readonly viewOptions: PixiFlapViewOptions;
-    private readonly boardLayout: BoardLayout;
+    private boardLayout: BoardLayout;
+    private layoutOptions: LayoutOptions;
     private readonly flapStyle: ResolvedFlapStyle;
     private readonly curve: FlipCurve;
-    private readonly sprites: UnitSprite[];
-    private readonly faceTextures = new Map<string, FaceTextures<any>>();
+    private sprites: UnitSprite[] = [];
+    private faceTextures = new Map<string, FaceTextures<any>>();
+    private zoom = 1;
     private ticker: Ticker | null = null;
     private readonly onTick = (ticker: Ticker): void => {
         this.update(Math.min(MAX_FRAME_DT, ticker.deltaMS));
@@ -51,18 +54,51 @@ export class PixiFlapView extends Container {
         this.target = options.target;
         this.flapStyle = resolveStyle(options.style);
         this.curve = options.flipCurve ?? defaultFlipCurve();
-        this.boardLayout = layout(options.target, options);
-        this.sprites = this.boardLayout.slots.map(slot => {
-            const sprite = new UnitSprite(
-                slot.rect.w,
-                slot.rect.h,
-                this.flapStyle
-            );
-            sprite.position.set(slot.rect.x, slot.rect.y);
-            this.addChild(sprite);
-            return sprite;
-        });
+        this.layoutOptions = { cell: options.cell, gap: options.gap };
+        this.boardLayout = layout(options.target, this.layoutOptions);
+        this.buildSprites();
         this.sync();
+    }
+
+    /** Unscaled layout width in px (the view's local units). */
+    get layoutWidth(): number {
+        return this.boardLayout.width;
+    }
+
+    /** Unscaled layout height in px (the view's local units). */
+    get layoutHeight(): number {
+        return this.boardLayout.height;
+    }
+
+    /**
+     * Changes the cell size and/or gaps at runtime (merged with the current
+     * values), then rebuilds the unit sprites and their textures.
+     */
+    setLayout(options: Partial<LayoutOptions>): void {
+        this.layoutOptions = {
+            cell: options.cell ?? this.layoutOptions.cell,
+            gap: { ...this.layoutOptions.gap, ...options.gap },
+        };
+        this.boardLayout = layout(this.target, this.layoutOptions);
+        for (const sprite of this.removeChildren()) {
+            sprite.destroy({ children: true, texture: false });
+        }
+        this.buildSprites();
+        this.refreshTextures();
+    }
+
+    /**
+     * Scales the view to fit a `width × height` box and repaints faces at
+     * `resolution × scale` so text stays sharp. Empty boxes are ignored.
+     */
+    fitTo(width: number, height: number, mode: FitMode = 'width'): void {
+        const scale = fitScale(this.boardLayout, { width, height }, mode);
+        if (scale === null) {
+            return;
+        }
+        this.zoom = scale;
+        this.scale.set(scale);
+        this.refreshTextures();
     }
 
     /** Drives `update` from a Pixi ticker (frame delta capped at 250 ms). */
@@ -109,6 +145,30 @@ export class PixiFlapView extends Container {
         this.faceTextures.clear();
     }
 
+    private buildSprites(): void {
+        this.sprites = this.boardLayout.slots.map(slot => {
+            const sprite = new UnitSprite(
+                slot.rect.w,
+                slot.rect.h,
+                this.flapStyle
+            );
+            sprite.position.set(slot.rect.x, slot.rect.y);
+            this.addChild(sprite);
+            return sprite;
+        });
+    }
+
+    /** Re-creates face textures for the current layout and scale. */
+    private refreshTextures(): void {
+        const previous = this.faceTextures;
+        this.faceTextures = new Map();
+        this.sync();
+        // Destroy after sync() has pointed the sprites at the new textures.
+        for (const textures of previous.values()) {
+            textures.destroy();
+        }
+    }
+
     private texturesFor(slot: UnitSlot): FaceTextures<any> {
         const cached = this.faceTextures.get(slot.field);
         if (cached) {
@@ -122,9 +182,9 @@ export class PixiFlapView extends Container {
                 // Faces fill the cell minus the covered-flap stack.
                 height: slot.rect.h - stackDepth(this.flapStyle),
                 resolution:
-                    this.viewOptions.resolution ??
-                    globalThis.devicePixelRatio ??
-                    1,
+                    (this.viewOptions.resolution ??
+                        globalThis.devicePixelRatio ??
+                        1) * this.zoom,
                 radius: this.flapStyle.radius,
                 createCanvas: this.viewOptions.createCanvas,
             }

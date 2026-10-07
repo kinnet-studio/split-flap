@@ -73,7 +73,10 @@
                 <input id="grid-input" value="HELLO WORLD" maxlength="22" />
                 <button id="grid-show">Show</button>
             </div>
-            <canvas id="grid-canvas"></canvas>
+            <!-- The grid fits this wrapper: resize the window to see it scale. -->
+            <div id="grid-wrap" style="max-width: 720px">
+                <canvas id="grid-canvas"></canvas>
+            </div>
         </section>
         <section>
             <h2>Colour flaps (shortest path)</h2>

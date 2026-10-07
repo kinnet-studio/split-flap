@@ -1,6 +1,7 @@
 import { type CanvasFactory, FaceCache } from '../render/face-cache.js';
 import type { FacePainter } from '../render/faces.js';
 import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
+import { type FitMode, fitScale } from '../render/fit.js';
 import { MAX_FRAME_DT } from '../render/frame.js';
 import { stackDepth } from '../render/stack.js';
 import {
@@ -41,6 +42,11 @@ export interface CanvasFlapRendererOptions extends LayoutOptions {
     createCanvas?: CanvasFactory;
     /** Frame loop used by start(). Default requestAnimationFrame. */
     scheduler?: FrameScheduler;
+    /**
+     * Keep the board fitted to `element` (via ResizeObserver) by setting
+     * {@link CanvasFlapRenderer.scale}. Default mode `'width'`.
+     */
+    fit?: { element: Element; mode?: FitMode };
 }
 
 /** Draws a board, field or unit into a 2D canvas. */
@@ -49,13 +55,16 @@ export class CanvasFlapRenderer {
     private readonly options: CanvasFlapRendererOptions;
     private readonly canvas: HTMLCanvasElement;
     private readonly ctx: CanvasRenderingContext2D;
-    private readonly boardLayout: BoardLayout;
+    private boardLayout: BoardLayout;
+    private layoutOptions: LayoutOptions;
     private readonly style: ResolvedFlapStyle;
     private readonly curve: FlipCurve;
     private readonly scheduler: FrameScheduler;
     private readonly caches = new Map<string, FaceCache<any>>();
     private readonly drawn = new Map<number, string>();
     private dpr = 1;
+    private zoom = 1;
+    private observer: ResizeObserver | null = null;
     private frame: number | null = null;
     private lastTime: number | null = null;
     private destroyed = false;
@@ -71,21 +80,64 @@ export class CanvasFlapRenderer {
         this.target = options.target;
         this.canvas = options.canvas;
         this.ctx = ctx;
-        this.boardLayout = layout(options.target, options);
+        this.layoutOptions = { cell: options.cell, gap: options.gap };
+        this.boardLayout = layout(options.target, this.layoutOptions);
         this.style = resolveStyle(options.style);
         this.curve = options.flipCurve ?? defaultFlipCurve();
         this.scheduler = options.scheduler ?? browserScheduler;
         this.resize();
+        if (options.fit) {
+            this.observe(options.fit.element, options.fit.mode ?? 'width');
+        }
     }
 
-    /** Layout width in CSS px. */
+    /** Displayed width in CSS px (layout width × scale). */
     get width(): number {
-        return this.boardLayout.width;
+        return this.boardLayout.width * this.zoom;
     }
 
-    /** Layout height in CSS px. */
+    /** Displayed height in CSS px (layout height × scale). */
     get height(): number {
-        return this.boardLayout.height;
+        return this.boardLayout.height * this.zoom;
+    }
+
+    /**
+     * Uniform zoom (default 1). Faces and the backing store are painted at
+     * `dpr × scale`, so text stays sharp. Must be a positive finite number.
+     */
+    get scale(): number {
+        return this.zoom;
+    }
+
+    set scale(value: number) {
+        if (!(value > 0) || !Number.isFinite(value)) {
+            throw new RangeError(
+                `CanvasFlapRenderer: scale must be a positive number, got ${value}`
+            );
+        }
+        this.zoom = value;
+        this.resize();
+    }
+
+    /**
+     * Changes the cell size and/or gaps at runtime (merged with the current
+     * values), then re-lays out, repaints faces and redraws.
+     */
+    setLayout(options: Partial<LayoutOptions>): void {
+        this.layoutOptions = {
+            cell: options.cell ?? this.layoutOptions.cell,
+            gap: { ...this.layoutOptions.gap, ...options.gap },
+        };
+        this.boardLayout = layout(this.target, this.layoutOptions);
+        this.resize();
+    }
+
+    /** Sets {@link scale} so the board fits a `width × height` box. */
+    fitTo(width: number, height: number, mode: FitMode = 'width'): void {
+        const scale = fitScale(this.boardLayout, { width, height }, mode);
+        if (scale !== null) {
+            this.scale = scale;
+        }
     }
 
     /** Draws every unit whose visible state changed since the last render. */
@@ -153,11 +205,12 @@ export class CanvasFlapRenderer {
     resize(): void {
         this.dpr = this.options.dpr ?? globalThis.devicePixelRatio ?? 1;
         const { width, height } = this.boardLayout;
-        this.canvas.width = Math.round(width * this.dpr);
-        this.canvas.height = Math.round(height * this.dpr);
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
-        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        const pixels = this.dpr * this.zoom;
+        this.canvas.width = Math.round(width * pixels);
+        this.canvas.height = Math.round(height * pixels);
+        this.canvas.style.width = `${width * this.zoom}px`;
+        this.canvas.style.height = `${height * this.zoom}px`;
+        this.ctx.setTransform(pixels, 0, 0, pixels, 0, 0);
         this.caches.clear();
         this.drawn.clear();
         this.render();
@@ -165,6 +218,8 @@ export class CanvasFlapRenderer {
 
     destroy(): void {
         this.stop();
+        this.observer?.disconnect();
+        this.observer = null;
         this.destroyed = true;
         this.caches.clear();
         this.drawn.clear();
@@ -181,12 +236,27 @@ export class CanvasFlapRenderer {
             width: slot.rect.w,
             // Faces fill the cell minus the covered-flap stack.
             height: slot.rect.h - stackDepth(this.style),
-            dpr: this.dpr,
+            dpr: this.dpr * this.zoom,
             radius: this.style.radius,
             createCanvas: this.options.createCanvas,
         });
         this.caches.set(slot.field, cache);
         return cache;
+    }
+
+    private observe(element: Element, mode: FitMode): void {
+        if (typeof ResizeObserver === 'undefined') {
+            throw new Error(
+                'CanvasFlapRenderer: the fit option needs ResizeObserver'
+            );
+        }
+        this.observer = new ResizeObserver(entries => {
+            const box = entries[entries.length - 1]?.contentRect;
+            if (box) {
+                this.fitTo(box.width, box.height, mode);
+            }
+        });
+        this.observer.observe(element);
     }
 
     private painterFor(field: string): FacePainter<any> {

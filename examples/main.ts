@@ -149,6 +149,8 @@ function grid(): void {
         },
         stagger: { order: 'diagonal', step: 30 },
     });
+    // Fills the wrapper's width and re-fits when the window resizes.
+    const wrap = document.getElementById('grid-wrap');
     new CanvasFlapRenderer({
         canvas: canvasById('grid-canvas'),
         target: board,
@@ -156,6 +158,7 @@ function grid(): void {
         cell,
         gap: { unit: 3, row: 6 },
         style,
+        fit: wrap ? { element: wrap } : undefined,
     }).start();
     const input = document.getElementById('grid-input');
     const show = () => {
