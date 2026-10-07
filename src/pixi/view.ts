@@ -38,21 +38,27 @@ export class PixiFlapView extends Container {
     private readonly viewOptions: PixiFlapViewOptions;
     private boardLayout: BoardLayout;
     private layoutOptions: LayoutOptions;
-    private readonly flapStyle: ResolvedFlapStyle;
+    private resolvedStyle: ResolvedFlapStyle;
+    private face: PixiFlapViewOptions['face'];
     private readonly curve: FlipCurve;
     private sprites: UnitSprite[] = [];
     private faceTextures = new Map<string, FaceTextures<any>>();
     private zoom = 1;
     private ticker: Ticker | null = null;
+    private listener: ((ticker: Ticker) => void) | null = null;
     private readonly onTick = (ticker: Ticker): void => {
         this.update(Math.min(MAX_FRAME_DT, ticker.deltaMS));
+    };
+    private readonly onSync = (): void => {
+        this.sync();
     };
 
     constructor(options: PixiFlapViewOptions) {
         super();
         this.viewOptions = options;
         this.target = options.target;
-        this.flapStyle = resolveStyle(options.style);
+        this.resolvedStyle = resolveStyle(options.style);
+        this.face = options.face;
         this.curve = options.flipCurve ?? defaultFlipCurve();
         this.layoutOptions = { cell: options.cell, gap: options.gap };
         this.boardLayout = layout(options.target, this.layoutOptions);
@@ -80,10 +86,34 @@ export class PixiFlapView extends Container {
             gap: { ...this.layoutOptions.gap, ...options.gap },
         };
         this.boardLayout = layout(this.target, this.layoutOptions);
-        for (const sprite of this.removeChildren()) {
-            sprite.destroy({ children: true, texture: false });
+        this.rebuild();
+    }
+
+    /** The resolved style in use. */
+    get flapStyle(): ResolvedFlapStyle {
+        return this.resolvedStyle;
+    }
+
+    /**
+     * Replaces the style (like the constructor option; spread `view.flapStyle`
+     * to change a single value), then rebuilds the unit sprites and textures.
+     */
+    setStyle(style: FlapStyle): void {
+        this.resolvedStyle = resolveStyle(style);
+        this.rebuild();
+    }
+
+    /**
+     * Replaces the face (one for every field, or one per field name), then
+     * repaints the textures. A map must cover every field.
+     */
+    setFace(face: PixiFlapViewOptions['face']): void {
+        if (typeof face !== 'function' && !isTextureFace(face)) {
+            for (const slot of this.boardLayout.slots) {
+                faceFrom(face, slot.field);
+            }
         }
-        this.buildSprites();
+        this.face = face;
         this.refreshTextures();
     }
 
@@ -101,16 +131,32 @@ export class PixiFlapView extends Container {
         this.refreshTextures();
     }
 
-    /** Drives `update` from a Pixi ticker (frame delta capped at 250 ms). */
-    attach(ticker: Ticker): void {
+    /**
+     * Drives `update` from a Pixi ticker (frame delta capped at 250 ms). With
+     * `update: false` it only syncs each tick, mirroring a target that
+     * something else advances.
+     */
+    attach(ticker: Ticker, options: { update?: boolean } = {}): void {
         this.detach();
-        ticker.add(this.onTick);
+        const listener = (options.update ?? true) ? this.onTick : this.onSync;
+        ticker.add(listener);
         this.ticker = ticker;
+        this.listener = listener;
     }
 
     detach(): void {
-        this.ticker?.remove(this.onTick);
+        const { ticker, listener } = this;
         this.ticker = null;
+        this.listener = null;
+        if (!ticker || !listener) {
+            return;
+        }
+        try {
+            ticker.remove(listener);
+        } catch {
+            // The ticker was destroyed first (e.g. with its Application), so
+            // there is no listener left to remove.
+        }
     }
 
     /** Advances the target by `dt` ms, then syncs the scene graph. */
@@ -143,6 +189,15 @@ export class PixiFlapView extends Container {
             textures.destroy();
         }
         this.faceTextures.clear();
+    }
+
+    /** Replaces the unit sprites (style or layout changed) and textures. */
+    private rebuild(): void {
+        for (const sprite of this.removeChildren()) {
+            sprite.destroy({ children: true, texture: false });
+        }
+        this.buildSprites();
+        this.refreshTextures();
     }
 
     private buildSprites(): void {
@@ -201,15 +256,20 @@ export class PixiFlapView extends Container {
     }
 
     private faceFor(field: string): PixiFace<any> {
-        const { face } = this.viewOptions;
-        if (typeof face === 'function' || isTextureFace(face)) {
-            return face as PixiFace<any>;
-        }
-        const fieldFace = face[field];
-        if (!fieldFace) {
-            throw new Error(`PixiFlapView: no face for field "${field}"`);
-        }
-        return fieldFace;
+        return faceFrom(this.face, field);
     }
+}
+function faceFrom(
+    face: PixiFlapViewOptions['face'],
+    field: string
+): PixiFace<any> {
+    if (typeof face === 'function' || isTextureFace(face)) {
+        return face as PixiFace<any>;
+    }
+    const fieldFace = face[field];
+    if (!fieldFace) {
+        throw new Error(`PixiFlapView: no face for field "${field}"`);
+    }
+    return fieldFace;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

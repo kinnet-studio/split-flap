@@ -57,7 +57,8 @@ export class CanvasFlapRenderer {
     private readonly ctx: CanvasRenderingContext2D;
     private boardLayout: BoardLayout;
     private layoutOptions: LayoutOptions;
-    private readonly style: ResolvedFlapStyle;
+    private resolvedStyle: ResolvedFlapStyle;
+    private face: CanvasFlapRendererOptions['face'];
     private readonly curve: FlipCurve;
     private readonly scheduler: FrameScheduler;
     private readonly caches = new Map<string, FaceCache<any>>();
@@ -82,13 +83,42 @@ export class CanvasFlapRenderer {
         this.ctx = ctx;
         this.layoutOptions = { cell: options.cell, gap: options.gap };
         this.boardLayout = layout(options.target, this.layoutOptions);
-        this.style = resolveStyle(options.style);
+        this.resolvedStyle = resolveStyle(options.style);
+        this.face = options.face;
         this.curve = options.flipCurve ?? defaultFlipCurve();
         this.scheduler = options.scheduler ?? browserScheduler;
         this.resize();
         if (options.fit) {
             this.observe(options.fit.element, options.fit.mode ?? 'width');
         }
+    }
+
+    /** The resolved style in use. */
+    get style(): ResolvedFlapStyle {
+        return this.resolvedStyle;
+    }
+
+    /**
+     * Replaces the style (like the constructor option; spread `renderer.style`
+     * to change a single value), then repaints faces and redraws.
+     */
+    setStyle(style: FlapStyle): void {
+        this.resolvedStyle = resolveStyle(style);
+        this.repaint();
+    }
+
+    /**
+     * Replaces the face painter (one for every field, or one per field name),
+     * then repaints faces and redraws. A map must cover every field.
+     */
+    setFace(face: CanvasFlapRendererOptions['face']): void {
+        if (typeof face !== 'function') {
+            for (const slot of this.boardLayout.slots) {
+                painterFrom(face, slot.field);
+            }
+        }
+        this.face = face;
+        this.repaint();
     }
 
     /** Displayed width in CSS px (layout width × scale). */
@@ -167,8 +197,13 @@ export class CanvasFlapRenderer {
         });
     }
 
-    /** Runs a frame loop: update the target by the frame delta, then render. */
-    start(): void {
+    /**
+     * Runs a frame loop: update the target by the frame delta, then render.
+     * With `update: false` it only renders, mirroring a target that something
+     * else advances (e.g. another renderer's loop).
+     */
+    start(options: { update?: boolean } = {}): void {
+        const update = options.update ?? true;
         if (this.destroyed || this.frame !== null) {
             return;
         }
@@ -176,7 +211,7 @@ export class CanvasFlapRenderer {
             // This frame has fired; a throw below must not leave a stale id.
             this.frame = null;
             try {
-                if (this.lastTime !== null) {
+                if (update && this.lastTime !== null) {
                     const dt = Math.min(MAX_FRAME_DT, time - this.lastTime);
                     if (dt > 0) {
                         this.target.update(dt);
@@ -211,6 +246,12 @@ export class CanvasFlapRenderer {
         this.canvas.style.width = `${width * this.zoom}px`;
         this.canvas.style.height = `${height * this.zoom}px`;
         this.ctx.setTransform(pixels, 0, 0, pixels, 0, 0);
+        this.caches.clear();
+        this.drawn.clear();
+        this.render();
+    }
+
+    private repaint(): void {
         this.caches.clear();
         this.drawn.clear();
         this.render();
@@ -271,17 +312,23 @@ export class CanvasFlapRenderer {
     }
 
     private painterFor(field: string): FacePainter<any> {
-        const { face } = this.options;
-        if (typeof face === 'function') {
-            return face;
-        }
-        const painter = face[field];
-        if (!painter) {
-            throw new Error(
-                `CanvasFlapRenderer: no face painter for field "${field}"`
-            );
-        }
-        return painter;
+        return painterFrom(this.face, field);
     }
+}
+
+function painterFrom(
+    face: CanvasFlapRendererOptions['face'],
+    field: string
+): FacePainter<any> {
+    if (typeof face === 'function') {
+        return face;
+    }
+    const painter = face[field];
+    if (!painter) {
+        throw new Error(
+            `CanvasFlapRenderer: no face painter for field "${field}"`
+        );
+    }
+    return painter;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

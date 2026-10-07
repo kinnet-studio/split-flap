@@ -17,10 +17,16 @@ Two related rendering features:
    (`{ row, field }`) and renderers to keep one face cache per (field, row) for painters that
    declare they depend on the row.
 
+## Runtime restyling (added later)
+
+`CanvasFlapRenderer.setStyle(style)` / `setFace(face)` and `PixiFlapView.setStyle(style)` /
+`setFace(face)` change the look of a running renderer. `setStyle` replaces the style (as the
+constructor option does; spread the `style` / `flapStyle` getter to change one value) and
+repaints; Pixi also rebuilds its unit sprites because the style shapes them. `setFace` validates
+that a face map covers every field before replacing it, then repaints.
+
 ## Non-goals
 
-- Changing style, theme or finish of an existing renderer at runtime (rebuild the renderer; the
-  examples app does this for its selectors).
 - Finish effects on ready-made Pixi textures (`textureFace`), gradients/shadows on text, or
   per-unit colours other than by flap value or row.
 
