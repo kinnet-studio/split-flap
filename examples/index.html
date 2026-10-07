@@ -29,7 +29,8 @@
                 margin: 8px 0 16px;
             }
             button,
-            input {
+            input,
+            select {
                 background: #2c2c33;
                 color: #eeeeee;
                 border: 1px solid #44444c;
@@ -61,6 +62,17 @@
                 <button id="spin">Spin</button>
                 <button id="stop">Stop</button>
                 <button id="sound">Sound: off</button>
+                <select id="theme" aria-label="Theme">
+                    <option value="classic">Theme: classic</option>
+                    <option value="solari">Theme: solari</option>
+                    <option value="airport">Theme: airport</option>
+                    <option value="cream">Theme: cream</option>
+                </select>
+                <select id="finish" aria-label="Finish">
+                    <option value="matte" selected>Finish: matte</option>
+                    <option value="satin">Finish: satin</option>
+                    <option value="gloss">Finish: gloss</option>
+                </select>
             </div>
             <div class="boards">
                 <canvas id="departures-canvas"></canvas>

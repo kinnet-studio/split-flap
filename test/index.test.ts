@@ -41,6 +41,9 @@ describe('entry points', () => {
                 'stackDepth',
                 'stackFlaps',
                 'fitScale',
+                'FLAP_THEMES',
+                'FINISH_PRESETS',
+                'finishFace',
             ])
         );
     });
@@ -59,6 +62,9 @@ describe('entry points', () => {
                 'stackDepth',
                 'stackFlaps',
                 'fitScale',
+                'FLAP_THEMES',
+                'FINISH_PRESETS',
+                'finishFace',
                 'textureFace',
             ])
         );
