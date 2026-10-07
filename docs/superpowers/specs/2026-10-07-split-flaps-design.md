@@ -49,7 +49,7 @@ convenient abstraction. Renderers mirror the same layering.
 ```
 src/
   core/      sequence.ts  plan-path.ts  unit.ts  field.ts  board.ts  playlist.ts  emitter.ts  index.ts
-  render/    flip-geometry.ts  flip-curve.ts  faces.ts  face-cache.ts  layout.ts
+  render/    flip-geometry.ts  flip-curve.ts  faces.ts  face-cache.ts  layout.ts  style.ts
   canvas/    draw-unit.ts  renderer.ts  index.ts
   pixi/      unit-sprite.ts  view.ts  index.ts
 examples/    Vite app: departures board (canvas + pixi side by side), plain grid, colour/image faces
@@ -166,6 +166,9 @@ Semantics:
   `flipstart` → `flipend` → (next `flipstart` …) → `settled` after the final `flipend`.
 - Event payloads: `flipstart` / `flipend` → `{ from: T; to: T; direction: 1 | -1 }`;
   `settled` → `{ flap: T }`.
+- `settled` is emitted at the end of an `update` in which the unit transitions from unsettled to
+  settled. `setTarget`/`spin` that create work mark the unit unsettled; `snapTo` marks it settled
+  without an event. Fields and boards use the same transition rule for their `settled` events.
 
 ### FieldSpec and FlapField<T, V>
 
@@ -182,7 +185,7 @@ interface FieldSpec<T, V> {
                                           // passed to each unit as its `pad`
   cells?: number;                         // layout width of each unit in cells, default 1
   stagger?: FieldStagger;
-  unit?: UnitOptions;                     // applied to every unit
+  unit?: Omit<UnitOptions, 'pad'>;        // applied to every unit (pad comes from the field)
 }
 
 interface FieldStagger {
@@ -196,7 +199,8 @@ textField(spec: Omit<FieldSpec<string, string>, 'toFlaps'>): FieldSpec<string, s
                                                              // toFlaps = Array.from
 
 new FlapField<T, V>(spec: FieldSpec<T, V>)
-field.set(value: V): void
+field.set(value: V, opts?: { delays?: readonly number[] }): void   // delays override stagger
+field.clear(opts?: { delays?: readonly number[] }): void           // every unit to pad
 field.snap(value: V): void
 field.spin(): void
 field.stop(): void
@@ -264,11 +268,13 @@ type Message<S> = RowValues<S>[] | { rows: RowValues<S>[]; hold?: number };
 board.play(messages, { hold = 5000, loop = true })
 ```
 
-- Shows message 0 immediately (emits `messagechange`). When the board **settles**, the hold timer
-  (message `hold`, else the option `hold`) starts. When it elapses, the next message is shown.
+- Shows message 0 immediately (emits `messagechange`). The hold timer (message `hold`, else the
+  option `hold`) starts at the first `update` in which the board is observed settled; that
+  update's `dt` is not counted. Later `dt`s accumulate; once the hold is reached the next message
+  is shown (leftover time is not carried into the next message).
 - `loop: false`: after the last message settles and its hold elapses, emits `playlistend` and
   leaves the last message displayed.
-- Driven by `board.update(dt)`, same accumulator semantics as units.
+- Driven by `board.update(dt)`, after the units have been updated for that `dt`.
 - `show()`, `spin()`, `stop()`, or another `play()` cancel the current playlist. `row(i).set()`
   does not.
 - Throws on an empty `messages` array.
@@ -287,8 +293,9 @@ Each unit is split horizontally at the hinge. For a forward flip (`direction: 1`
     the hinge).
   - `θ ≥ 90`: bottom half of `B` (the flap's back), anchored at the hinge, vertical scale
     `|cos θ|` (growing downward).
-- Shading: the moving flap darkens as `θ` approaches 90; the static bottom half receives a cast
-  shadow while the flap is in the first phase.
+- Shading: the moving flap darkens by `flapShade = 1 - |cos θ|` (peaks edge-on at 90°). The
+  static half the flap is moving toward (`shadowHalf`: bottom for forward flips) receives a cast
+  shadow of strength `castShadow = sin θ`. Both are scaled by the style's `shade` / `shadow`.
 
 A backward flip (`direction: -1`) mirrors this vertically: static top is the top half of `A`,
 static bottom is the bottom half of `B`; the moving flap is the bottom half of `A` shrinking up
@@ -302,6 +309,7 @@ flipGeometry(angle: number, direction: 1 | -1): {
   flap: { face: 'current' | 'next'; half: 'top' | 'bottom'; anchor: 'hinge'; scaleY: number };
   flapShade: number;      // 0..1
   castShadow: number;     // 0..1
+  shadowHalf: 'top' | 'bottom';
 }
 ```
 
@@ -326,16 +334,19 @@ Default keyframes: ease-in fall `0 → 180` by `0.8`, bounce back to `165` at `0
 A face painter draws one full flap face; both renderers use it.
 
 ```ts
-type FacePainter<T> = (ctx: CanvasRenderingContext2D, flap: T, width: number, height: number) => void;
+type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+type FacePainter<T> = (ctx: Ctx2D, flap: T, width: number, height: number) => void;
 
 textFace(opts: { font: string; color: string; background: string; align?: 'center' }): FacePainter<string>
-colorFace(opts?: { background?: string }): FacePainter<string>   // flap is a CSS colour
+colorFace(): FacePainter<string>   // flap is a CSS colour
 ```
 
 - `FaceCache` paints each face once into an offscreen canvas (`OffscreenCanvas` when available,
   else `HTMLCanvasElement`) at device-pixel resolution (`ctx` pre-scaled by `devicePixelRatio`;
-  painters work in CSS pixels). Key: `sequence.key(flap)` + size + dpr + painter identity.
-  Halves are cut from the cached face.
+  painters work in CSS pixels). One cache exists per (field, painter, size, dpr); within it faces
+  are keyed by `sequence.key(flap)`. `resize()` clears it. When `style.radius > 0` the face is
+  clipped to a rounded rect before painting, so both renderers get rounded corners from the
+  cached image. Halves are cut from the cached face.
 - Painter errors propagate.
 
 ### Style
@@ -375,6 +386,9 @@ new CanvasFlapRenderer<T>({
   face: FacePainter<T>;          // or a per-field map for boards: { [fieldName]: FacePainter }
   style?: FlapStyle;
   flipCurve?: (progress: number) => number;
+  dpr?: number;                  // default globalThis.devicePixelRatio ?? 1, re-read on resize()
+  createCanvas?: (w: number, h: number) => FaceCanvas;   // offscreen face canvases (tests inject)
+  scheduler?: { request(cb: (t: number) => void): number; cancel(id: number): void };  // default rAF
 } & LayoutOptions)
 
 renderer.render(): void   // draws the current state
@@ -393,7 +407,9 @@ renderer.destroy(): void
 ```ts
 new PixiFlapView<T>({
   target: FlapBoard<any> | FlapField<T, any> | FlapUnit<T>;
-  face: FacePainter<T> | ((flap: T) => Texture);   // or a per-field map for boards
+  face: FacePainter<T> | TextureFace<T>;   // or a per-field map for boards
+  resolution?: number;                     // face canvas resolution, default devicePixelRatio ?? 1
+  createCanvas?: (w: number, h: number) => FaceCanvas;
   style?: FlapStyle;
   flipCurve?: (progress: number) => number;
 } & LayoutOptions)                // extends Container; consumer adds it to their stage
@@ -405,8 +421,10 @@ view.sync(): void                   // apply current state to the scene graph
 view.destroy(): void                // releases textures created by the view
 ```
 
+- `textureFace((flap: T) => Texture)` wraps a texture lookup so it can be told apart from a
+  painter; its textures are used as-is (no radius applied).
 - Each unit is a Container with Sprites for the static top, static bottom, and moving flap, plus
-  a shadow sprite. Painted faces become textures via `Texture.from(canvas)`; half sprites use
+  shadow and hinge sprites. Painted faces become textures via `Texture.from(canvas)`; half sprites use
   sub-textures sharing the face's source with a half-height `frame`.
 - The moving flap's `scale.y` follows the flip geometry; shading uses `tint`.
 
