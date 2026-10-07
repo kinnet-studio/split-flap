@@ -1,0 +1,36 @@
+{
+    "name": "@kinnet-studio/split-flaps",
+    "version": "0.1.0",
+    "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
+    "license": "MIT",
+    "type": "module",
+    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "typecheck": "tsc -p tsconfig.json",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "dependencies": {
+        "@ue-too/animate": "^0.19.0"
+    },
+    "peerDependencies": {
+        "pixi.js": "^8.0.0"
+    },
+    "peerDependenciesMeta": {
+        "pixi.js": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "pixi.js": "8.20.1",
+        "prettier": "3.8.1",
+        "typescript": "^5.9.3",
+        "vite": "^8.3.3",
+        "vitest": "^5.0.3"
+    }
+}
