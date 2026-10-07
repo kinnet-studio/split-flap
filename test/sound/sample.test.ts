@@ -60,7 +60,7 @@ describe('FlapSound samples', () => {
         await expect(sound.unlock()).rejects.toThrow('HTTP 404');
         expect(sound.unlocked).toBe(true);
         sound.play();
-        expect((context.sources[0].buffer as FakeBuffer).length).toBe(2400);
+        expect((context.sources[0].buffer as FakeBuffer).length).toBe(1680);
     });
 
     it('falls back to the synth click when decoding fails', async () => {
@@ -69,6 +69,6 @@ describe('FlapSound samples', () => {
         context.decodeError = new Error('bad audio');
         await expect(sound.unlock()).rejects.toThrow('bad audio');
         sound.play();
-        expect((context.sources[0].buffer as FakeBuffer).length).toBe(2400);
+        expect((context.sources[0].buffer as FakeBuffer).length).toBe(1680);
     });
 });

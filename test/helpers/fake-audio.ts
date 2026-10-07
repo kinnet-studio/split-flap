@@ -26,6 +26,11 @@ export class FakePanner extends FakeNode {
     readonly pan = new FakeParam();
 }
 
+export class FakeShaper extends FakeNode {
+    curve: Float32Array | null = null;
+    oversample: OverSampleType = 'none';
+}
+
 export class FakeSource extends FakeNode {
     buffer: unknown = null;
     readonly playbackRate = new FakeParam();
@@ -68,6 +73,7 @@ export class FakeAudioContext {
     readonly sources: FakeSource[] = [];
     readonly gains: FakeGain[] = [];
     readonly panners: FakePanner[] = [];
+    readonly shapers: FakeShaper[] = [];
     readonly decoded: ArrayBuffer[] = [];
     decodeResult: unknown = new FakeBuffer(1, 10, 48000);
     decodeError: Error | null = null;
@@ -93,6 +99,12 @@ export class FakeAudioContext {
         const panner = new FakePanner();
         this.panners.push(panner);
         return panner;
+    }
+
+    createWaveShaper(): FakeShaper {
+        const shaper = new FakeShaper();
+        this.shapers.push(shaper);
+        return shaper;
     }
 
     createBufferSource(): FakeSource {

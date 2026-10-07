@@ -9,8 +9,9 @@
 Optional, renderer-agnostic sound for split-flap boards. `FlapSound` subscribes to a core
 target's `flipend` events and plays a short click for every landed flap through the Web Audio
 API. The default click is synthesized (no audio assets); a custom sample can replace it. Many
-simultaneous landings are kept clean by a voice cap, small random variation, and stereo panning
-by column, so a ripple travels across the speakers.
+simultaneous landings are kept clean by a voice cap, small random variation (including a few
+milliseconds of timing spread), stereo panning by column, so a ripple travels across the
+speakers, and a soft clipper on the output.
 
 ## Goals
 
@@ -47,7 +48,7 @@ interface FlapSoundOptions {
     sample?: AudioBuffer | string; // AudioBuffer used as-is; string = URL fetched + decoded on unlock()
     synth?: SynthClickOptions;    // ignored when a sample is loaded
     maxVoices?: number;           // whole number >= 1, default 12
-    variation?: { pitch?: number; volume?: number }; // >= 0, defaults 0.06 / 0.15
+    variation?: { pitch?: number; volume?: number; timing?: number }; // >= 0, defaults 0.06 / 0.15 / 0.012 s
     pan?: number;                 // 0..1 stereo width, default 0.6
     context?: AudioContext;       // inject a shared context; otherwise created on unlock()
     random?: () => number;        // default Math.random; inject for tests
@@ -56,7 +57,7 @@ interface FlapSoundOptions {
 class FlapSound {
     constructor(options: FlapSoundOptions);
     unlock(): Promise<void>;      // create/resume context, load sample, build graph; idempotent
-    play(pan?: number): void;     // one click now (pan -1..1, default 0); no-op before unlock
+    play(pan?: number): void;     // one click within variation.timing (pan -1..1, default 0); no-op before unlock
     volume: number;               // get/set, 0..1, RangeError otherwise
     muted: boolean;               // get/set
     readonly unlocked: boolean;
@@ -64,11 +65,12 @@ class FlapSound {
 }
 
 interface SynthClickOptions {
-    frequency?: number;   // Hz of the tonal tick, default 2200
-    decay?: number;       // s, envelope time constant, default 0.012
-    duration?: number;    // s, buffer length, default 0.05
-    noise?: number;       // 0..1 noise vs tone mix, default 0.6
-    brightness?: number;  // (0, 1] one-pole low-pass amount (1 = no filtering), default 0.5
+    frequency?: number;   // Hz of the tonal knock, default 800
+    decay?: number;       // s, envelope time constant, default 0.005
+    duration?: number;    // s, buffer length, default 0.035
+    noise?: number;       // 0..1 noise vs tone mix, default 0.92
+    brightness?: number;  // (0, 1] low-pass amount per stage (1 = no filtering), default 0.22
+    attack?: number;      // s, linear fade-in (0 = instant), default 0.001
 }
 
 function renderClick(
@@ -84,21 +86,27 @@ function renderClick(
 
 - The constructor subscribes to `target.on('flipend', …)` (unit, field and board all emit it).
 - Before `unlock()` resolves, landings are ignored (not queued). After `destroy()`, nothing plays.
-- Each `flipend` plays one click immediately (`start(context.currentTime)`); a burst of landings in
-  one `update()` plays together, subject to the voice cap. `timeScale` needs no special handling.
+- Each `flipend` plays one click at once, give or take the timing variation
+  (`start(context.currentTime + r × variation.timing)`); a burst of landings in one `update()` is
+  spread over that window instead of hitting in unison, subject to the voice cap. `timeScale` needs
+  no special handling.
 
 ### Synthesis (`renderClick`)
 
 - Length: `round(duration × sampleRate)` samples (min 1).
 - Sample `i` at `t = i / sampleRate`:
-  `raw = noise × n(i) + (1 − noise) × sin(2π · frequency · t)` with `n(i)` uniform in [−1, 1]
-  from `random`; `env = exp(−t / decay)`; then a one-pole low-pass
-  `y = y_prev + brightness × (raw·env − y_prev)`; finally the buffer is normalized so its peak
-  absolute value is 0.9.
+  `raw = noise × h(i) + (1 − noise) × sin(2π · frequency · t)`, where `h` is white noise (uniform
+  in [−1, 1] from `random`) through a one-pole high-pass at 250 Hz, so the click has no low
+  thump; `env = min(1, t / attack) × exp(−t / decay)` (no fade-in when `attack` is 0); then two
+  one-pole low-pass stages, each `y = y_prev + brightness × (x − y_prev)`; finally the buffer is
+  normalized so its peak absolute value is 0.9.
+- The defaults put most of the energy between 300 Hz and 2 kHz (centroid about 1.3 kHz) with no
+  dominant tone, a dull "clack" rather than a high tick. The fade-in means the click starts from
+  silence instead of a step.
 - Default `random` is a fixed-seed PRNG (mulberry32, seed 0x5f1a95), so the default click is
   identical on every load.
 - Validation: `frequency > 0`, `decay > 0`, `duration > 0`, `noise` in 0..1, `brightness` in
-  (0, 1] (0 would filter the click to silence), all finite, else `RangeError`.
+  (0, 1] (0 would filter the click to silence), `attack >= 0`, all finite, else `RangeError`.
 
 ### Samples
 
@@ -110,9 +118,15 @@ function renderClick(
 ### Mixing
 
 - Graph per click: `AudioBufferSourceNode → GainNode → StereoPannerNode → master GainNode →
-  destination`. The master gain is created on unlock; its value is `muted ? 0 : volume`.
+  soft clipper → destination`. The master gain is created on unlock; its value is
+  `muted ? 0 : volume`.
+- Soft clipper: a `GainNode` of `1 / CLIP_RANGE` (4) into a `WaveShaperNode` (oversample `4x`)
+  whose curve is unity up to `CLIP_KNEE` (0.7) and a tanh shoulder above it that approaches but
+  never passes 1. Normal levels pass untouched; a burst that sums past full scale is rounded off
+  instead of hard-clipping at the output. (A `DynamicsCompressorNode` was rejected: its automatic
+  makeup gain raises every click, and it lets 5 ms transients through.)
 - Per-click variation (from `random`): `playbackRate = 1 + (2r₁ − 1) × variation.pitch`;
-  `gain = 1 − r₂ × variation.volume`.
+  `gain = 1 − r₂ × variation.volume`; start delay `r₃ × variation.timing`.
 - Voice cap: an active-voice counter increments on `start` and decrements on the source's `ended`
   event; a landing while `active >= maxVoices` is skipped.
 - While muted, landings create no nodes at all.
@@ -154,14 +168,16 @@ single column or `pan: 0` gives 0.
 
 ## Testing
 
-- `renderClick`: length; peak near the start and decay towards the end; deterministic for the
-  default seed; `noise: 0` matches a decaying sine (before filtering, with `brightness: 1`);
-  every sample within ±0.9 after normalization; validation errors.
+- `renderClick`: length; starts from silence (fade-in); under 20% of the energy above 2 kHz;
+  peak near the start and decay towards the end; deterministic for the default seed; `noise: 0`
+  matches a decaying sine (with `brightness: 1`, `attack: 0`); every sample within ±0.9 after
+  normalization; validation errors.
 - Pan tables: board with mixed `cells` widths, field, unit, `pan: 0`, single column.
 - `FlapSound` with a recording fake `AudioContext` (createBufferSource / createGain /
   createStereoPanner / createBuffer / decodeAudioData / resume / close; `ended` triggered
   manually): silent before unlock; plays on `flipend` with expected pan, rate and gain (seeded
-  `random`); voice cap and voice release on `ended`; muted creates no nodes; `volume` setter
+  `random`), including the timing spread; master → headroom → soft clipper → destination; clipper
+  curve unity below the knee, monotonic and within ±1; voice cap and voice release on `ended`; muted creates no nodes; `volume` setter
   updates master gain; URL sample via stubbed `fetch`; failed load falls back to synth and rejects;
   `destroy` unsubscribes; closes only a context it created; missing Web Audio rejects.
 - Entry point export test; build dist check covers `/sound`.

@@ -23,8 +23,12 @@ export interface FlapSoundOptions {
     synth?: SynthClickOptions;
     /** Clicks allowed to overlap; extra landings are skipped. Default 12. */
     maxVoices?: number;
-    /** ± random spread per click. Defaults: pitch 0.06, volume 0.15. */
-    variation?: { pitch?: number; volume?: number };
+    /**
+     * Random spread per click: ± pitch and volume, and up to `timing`
+     * seconds of delay so flaps landing together don't hit in unison.
+     * Defaults: pitch 0.06, volume 0.15, timing 0.012.
+     */
+    variation?: { pitch?: number; volume?: number; timing?: number };
     /** 0..1 stereo width by column. Default 0.6. */
     pan?: number;
     /** Shared AudioContext; otherwise one is created on unlock(). */
@@ -48,12 +52,14 @@ export class FlapSound {
     private readonly maxVoices: number;
     private readonly pitchVariation: number;
     private readonly volumeVariation: number;
+    private readonly timingVariation: number;
     private readonly panFor: PanLookup;
     private readonly random: () => number;
     private readonly ownsContext: boolean;
     private readonly unsubscribe: () => void;
     private context: AudioContext | null;
     private master: GainNode | null = null;
+    private clipper: WaveShaperNode | null = null;
     private buffer: AudioBuffer | null = null;
     private unlocking: Promise<void> | null = null;
     private ready = false;
@@ -80,6 +86,10 @@ export class FlapSound {
         this.volumeVariation = checkNonNegative(
             options.variation?.volume ?? 0.15,
             'variation.volume'
+        );
+        this.timingVariation = checkNonNegative(
+            options.variation?.timing ?? 0.012,
+            'variation.timing'
         );
         this.synth = resolveSynthClick(options.synth);
         this.sample = options.sample;
@@ -126,7 +136,10 @@ export class FlapSound {
         return this.unlocking;
     }
 
-    /** Plays one click now (pan -1..1). No-op before unlock or when muted. */
+    /**
+     * Plays one click within `variation.timing` seconds (pan -1..1). No-op
+     * before unlock or when muted.
+     */
     play(pan = 0): void {
         const { context, master, buffer } = this;
         if (
@@ -158,7 +171,9 @@ export class FlapSound {
             gain.disconnect();
             panner.disconnect();
         };
-        source.start(context.currentTime);
+        source.start(
+            context.currentTime + this.random() * this.timingVariation
+        );
     }
 
     /** Stops listening and releases audio; closes only a context it created. */
@@ -169,6 +184,7 @@ export class FlapSound {
         this.destroyed = true;
         this.unsubscribe();
         this.master?.disconnect();
+        this.clipper?.disconnect();
         if (this.ownsContext && this.context) {
             void this.context.close();
         }
@@ -185,8 +201,16 @@ export class FlapSound {
         }
         await context.resume();
         const master = context.createGain();
-        master.connect(context.destination);
+        const headroom = context.createGain();
+        headroom.gain.value = 1 / CLIP_RANGE;
+        const clipper = context.createWaveShaper();
+        clipper.curve = softClipCurve();
+        clipper.oversample = '4x';
+        master.connect(headroom);
+        headroom.connect(clipper);
+        clipper.connect(context.destination);
         this.master = master;
+        this.clipper = clipper;
         this.applyMasterGain();
         this.buffer = this.synthBuffer(context);
         this.ready = true;
@@ -211,6 +235,32 @@ export class FlapSound {
             this.master.gain.value = this.silenced ? 0 : this.level;
         }
     }
+}
+
+/** Peaks up to this level reach the soft clipper's curve; louder hold at 1. */
+export const CLIP_RANGE = 4;
+/** Level where the soft clipper starts rounding peaks off. */
+export const CLIP_KNEE = 0.7;
+
+/**
+ * WaveShaper curve for input scaled down by {@link CLIP_RANGE}: unchanged up
+ * to {@link CLIP_KNEE}, then a tanh shoulder that never passes 1. Many flaps
+ * landing together can sum well past full scale; this rounds those peaks off
+ * instead of letting the output clip.
+ */
+export function softClipCurve(points = 2049): Float32Array<ArrayBuffer> {
+    const curve = new Float32Array(points);
+    for (let i = 0; i < points; i++) {
+        const x = ((2 * i) / (points - 1) - 1) * CLIP_RANGE;
+        const over = Math.abs(x) - CLIP_KNEE;
+        curve[i] =
+            over <= 0
+                ? x
+                : Math.sign(x) *
+                  (CLIP_KNEE +
+                      (1 - CLIP_KNEE) * Math.tanh(over / (1 - CLIP_KNEE)));
+    }
+    return curve;
 }
 
 async function loadSample(

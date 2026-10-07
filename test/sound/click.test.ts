@@ -16,9 +16,31 @@ function energy(samples: Float32Array, from: number, to: number): number {
     return sum;
 }
 
+/** Share of the energy above `hz`, from a plain DFT. */
+function shareAbove(samples: Float32Array, hz: number): number {
+    const n = samples.length;
+    let total = 0;
+    let above = 0;
+    for (let k = 1; k < n / 2; k++) {
+        let re = 0;
+        let im = 0;
+        for (let i = 0; i < n; i++) {
+            const phase = (2 * Math.PI * k * i) / n;
+            re += samples[i] * Math.cos(phase);
+            im -= samples[i] * Math.sin(phase);
+        }
+        const power = re * re + im * im;
+        total += power;
+        if ((k * RATE) / n > hz) {
+            above += power;
+        }
+    }
+    return above / total;
+}
+
 describe('renderClick', () => {
     it('is duration × sampleRate samples long', () => {
-        expect(renderClick(RATE)).toHaveLength(2400);
+        expect(renderClick(RATE)).toHaveLength(1680);
         expect(renderClick(RATE, { duration: 0.01 })).toHaveLength(480);
         expect(renderClick(10, { duration: 0.01 })).toHaveLength(1);
     });
@@ -28,6 +50,19 @@ describe('renderClick', () => {
         const fifth = click.length / 5;
         expect(energy(click, click.length - fifth, click.length)).toBeLessThan(
             energy(click, 0, fifth) * 0.05
+        );
+    });
+
+    it('fades in from silence instead of starting with a pop', () => {
+        expect(renderClick(RATE)[0]).toBe(0);
+        expect(renderClick(RATE, { attack: 0 })[0]).not.toBe(0);
+    });
+
+    it('keeps its energy low rather than shrill', () => {
+        expect(shareAbove(renderClick(RATE), 2000)).toBeLessThan(0.2);
+        const shrill = { frequency: 2200, noise: 0.6, brightness: 1 };
+        expect(shareAbove(renderClick(RATE, shrill), 2000)).toBeGreaterThan(
+            0.5
         );
     });
 
@@ -42,7 +77,7 @@ describe('renderClick', () => {
     });
 
     it('is a decaying sine with no noise and no filtering', () => {
-        const options = { noise: 0, brightness: 1 };
+        const options = { noise: 0, brightness: 1, attack: 0 };
         const click = renderClick(RATE, options);
         const { frequency, decay } = DEFAULT_SYNTH_CLICK;
         const expected = Array.from(
@@ -72,6 +107,8 @@ describe('renderClick', () => {
             { noise: 1.5 },
             { brightness: 0 },
             { brightness: 1.1 },
+            { attack: -1 },
+            { attack: Infinity },
         ]) {
             expect(() => renderClick(RATE, options)).toThrow(RangeError);
         }
