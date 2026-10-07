@@ -14,6 +14,7 @@ import {
     textFace,
 } from '@kinnet-studio/split-flaps/canvas';
 import { PixiFlapView } from '@kinnet-studio/split-flaps/pixi';
+import { FlapSound } from '@kinnet-studio/split-flaps/sound';
 import { Application } from 'pixi.js';
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
@@ -122,6 +123,18 @@ async function departures(): Promise<void> {
     onClick('play', () => board.play(messages, { hold: 4000 }));
     onClick('spin', () => board.spin());
     onClick('stop', () => board.stop());
+
+    // Sound starts muted; the first click unlocks audio (browsers require a
+    // user gesture) and toggles it on.
+    const sound = new FlapSound({ target: board, volume: 0.4, muted: true });
+    const soundButton = document.getElementById('sound');
+    onClick('sound', () => {
+        sound.unlock().catch(error => console.error(error));
+        sound.muted = !sound.muted;
+        if (soundButton) {
+            soundButton.textContent = sound.muted ? 'Sound: off' : 'Sound: on';
+        }
+    });
 }
 
 function grid(): void {

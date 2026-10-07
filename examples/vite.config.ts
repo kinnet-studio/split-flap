@@ -13,6 +13,10 @@ export default defineConfig({
                 replacement: fromHere('../src/canvas/index.ts'),
             },
             {
+                find: /^@kinnet-studio\/split-flaps\/sound$/,
+                replacement: fromHere('../src/sound/index.ts'),
+            },
+            {
                 find: /^@kinnet-studio\/split-flaps\/pixi$/,
                 replacement: fromHere('../src/pixi/index.ts'),
             },

@@ -151,6 +151,31 @@ shrinks by `count × step`, and layout and canvas size stay the same. The edges
 are the real earlier flaps on the drum, so colour faces show the previous
 colours.
 
+## Sound
+
+`/sound` plays a short click for every flap that lands, through the Web Audio
+API. It listens to the core, so it works with any renderer (or none):
+
+```ts
+import { FlapSound } from '@kinnet-studio/split-flaps/sound';
+
+const sound = new FlapSound({ target: board, volume: 0.5 });
+// Browsers only allow audio after a user gesture:
+addEventListener('pointerdown', () => sound.unlock(), { once: true });
+
+sound.muted = true; // or sound.volume = 0.2; or sound.destroy()
+```
+
+Sound is opt-in: nothing plays unless you create a `FlapSound` and `unlock()`
+it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
+
+The default click is synthesized (no audio files); pass `synth` to tune it, or
+`sample` (an `AudioBuffer` or a URL) to use your own recording. Each click gets
+a small random pitch and volume change (`variation`), overlapping clicks are
+capped at `maxVoices` (default 12), and board clicks are panned left to right
+by column (`pan`, 0..1 width). If a sample URL fails to load, `unlock()`
+rejects but the synth click keeps playing.
+
 ## Speed
 
 `flipDuration` (per unit, or per field via `unit: { flipDuration }`) sets how
