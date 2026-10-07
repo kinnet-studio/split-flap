@@ -151,6 +151,36 @@ shrinks by `count × step`, and layout and canvas size stay the same. The edges
 are the real earlier flaps on the drum, so colour faces show the previous
 colours.
 
+## Sizing and resizing
+
+`cell` (unit size), `gap` and a field's `cells` (width in cells) set the
+board's layout size. At runtime:
+
+```ts
+renderer.setLayout({ cell: { w: 40, h: 60 }, gap: { unit: 4 } }); // re-lay out
+renderer.scale = 1.5; // uniform zoom; faces repaint at dpr × scale (sharp text)
+renderer.fitTo(width, height, 'contain'); // pick the scale for a box
+
+// Or keep the board fitted to an element (ResizeObserver):
+new CanvasFlapRenderer({ /* … */ fit: { element: wrapper } }); // mode 'width'
+```
+
+`'width'` fills the element's width and lets the height follow, which suits
+normal page flow (the element's width must not depend on the canvas).
+`'contain'` fits both dimensions and needs an element with a fixed height.
+`renderer.width` / `height` report the displayed size.
+
+Pixi apps own their canvas, so `PixiFlapView` offers the same pieces without
+the observer: `view.setLayout(...)`, `view.fitTo(width, height, mode)` (scales
+the view and repaints faces at `resolution × scale`), and
+`view.layoutWidth` / `layoutHeight` (unscaled size):
+
+```ts
+new ResizeObserver(([entry]) =>
+    view.fitTo(entry.contentRect.width, entry.contentRect.height)
+).observe(app.canvas.parentElement!);
+```
+
 ## Sound
 
 `/sound` plays a short click for every flap that lands, through the Web Audio

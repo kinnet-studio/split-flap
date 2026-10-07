@@ -53,4 +53,5 @@ export {
     type ResolvedFlapStyle,
 } from '../render/style.js';
 export { stackDepth, stackFlaps } from '../render/stack.js';
+export { fitScale, type FitMode, type Size } from '../render/fit.js';
 export { MAX_FRAME_DT } from '../render/frame.js';

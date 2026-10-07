@@ -40,6 +40,7 @@ describe('entry points', () => {
                 'textFace',
                 'stackDepth',
                 'stackFlaps',
+                'fitScale',
             ])
         );
     });
@@ -57,6 +58,7 @@ describe('entry points', () => {
                 'textFace',
                 'stackDepth',
                 'stackFlaps',
+                'fitScale',
                 'textureFace',
             ])
         );

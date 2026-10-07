@@ -398,6 +398,18 @@ A unit with `cells = c` is `c * cell.w + (c - 1) * gap.unit` wide. Units in a fi
 is laid out as a single row. `layout(target, opts)` returns the rect for each unit and the total
 size.
 
+### Resizing
+
+`fitScale(size, box, mode)` (shared, pure) returns the uniform scale that fits a layout into a
+box: `'width'` (default) uses the width only, `'contain'` the smaller of width/height ratios;
+`null` for empty boxes. `CanvasFlapRenderer` has `setLayout({ cell?, gap? })` (merge, re-lay out,
+repaint, redraw), a `scale` property (canvas CSS size = layout × scale; backing store and faces
+painted at `dpr × scale`), `fitTo(width, height, mode)`, and a `fit: { element, mode? }` option
+that drives `fitTo` from a `ResizeObserver` (disconnected by `destroy()`). `width`/`height`
+report the displayed size. `PixiFlapView` has `setLayout(...)` (rebuilds sprites and textures),
+`fitTo(...)` (sets the container scale and repaints faces at `resolution × scale`), and
+`layoutWidth`/`layoutHeight` (unscaled); apps wire their own observer.
+
 ### Canvas renderer (`/canvas`)
 
 ```ts
