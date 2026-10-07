@@ -1,4 +1,8 @@
-export { CHARSETS, FlapSequence, type FlapSequenceOptions } from './sequence.js';
+export {
+    CHARSETS,
+    FlapSequence,
+    type FlapSequenceOptions,
+} from './sequence.js';
 export {
     planPath,
     type Cycle,
