@@ -21,7 +21,10 @@ export interface FlapSoundOptions {
     sample?: AudioBuffer | string;
     /** Synth click tuning; ignored once a sample has loaded. */
     synth?: SynthClickOptions;
-    /** Clicks allowed to overlap; extra landings are skipped. Default 12. */
+    /**
+     * Clicks allowed to overlap; a landing past this fades out the oldest
+     * click to make room. Default 12.
+     */
     maxVoices?: number;
     /**
      * Random spread per click: ± pitch and volume, and up to `timing`
@@ -36,6 +39,14 @@ export interface FlapSoundOptions {
     /** Random source for variation. Default Math.random. */
     random?: () => number;
 }
+
+interface Voice {
+    source: AudioBufferSourceNode;
+    gain: GainNode;
+}
+
+/** Seconds for a stolen voice to fade out before it stops. */
+const STEAL_FADE = 0.004;
 
 interface FlipSource {
     on(event: 'flipend', listener: (event: FlipPosition) => void): () => void;
@@ -64,7 +75,8 @@ export class FlapSound {
     private unlocking: Promise<void> | null = null;
     private ready = false;
     private destroyed = false;
-    private active = 0;
+    /** Playing clicks, oldest first. */
+    private readonly voices: Voice[] = [];
     private level: number;
     private silenced: boolean;
 
@@ -148,10 +160,12 @@ export class FlapSound {
             this.silenced ||
             !context ||
             !master ||
-            !buffer ||
-            this.active >= this.maxVoices
+            !buffer
         ) {
             return;
+        }
+        while (this.voices.length >= this.maxVoices) {
+            this.release(this.voices[0], context.currentTime);
         }
         const source = context.createBufferSource();
         source.buffer = buffer;
@@ -164,9 +178,10 @@ export class FlapSound {
         source.connect(gain);
         gain.connect(panner);
         panner.connect(master);
-        this.active++;
+        const voice = { source, gain };
+        this.voices.push(voice);
         source.onended = () => {
-            this.active--;
+            this.forget(voice);
             source.disconnect();
             gain.disconnect();
             panner.disconnect();
@@ -233,6 +248,20 @@ export class FlapSound {
     private applyMasterGain(): void {
         if (this.master) {
             this.master.gain.value = this.silenced ? 0 : this.level;
+        }
+    }
+
+    /** Fades a voice out and stops it, freeing its slot now. */
+    private release(voice: Voice, now: number): void {
+        this.forget(voice);
+        voice.gain.gain.setTargetAtTime(0, now, STEAL_FADE);
+        voice.source.stop(now + STEAL_FADE * 5);
+    }
+
+    private forget(voice: Voice): void {
+        const index = this.voices.indexOf(voice);
+        if (index >= 0) {
+            this.voices.splice(index, 1);
         }
     }
 }

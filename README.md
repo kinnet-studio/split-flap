@@ -343,14 +343,14 @@ sound.muted = true; // or sound.volume = 0.2; or sound.destroy()
 Sound is opt-in: nothing plays unless you create a `FlapSound` and `unlock()`
 it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
 
-The default click is synthesized (no audio files): a short, dull clack of
-filtered noise over a low knock, with a soft fade-in so it never pops. Pass
-`synth` to tune it, or `sample` (an `AudioBuffer` or a URL) to use your own
-recording. Each click gets a small random pitch, volume and timing change
-(`variation`; flaps that land in the same frame are spread over up to 12 ms
-instead of hitting in unison), overlapping clicks are capped at `maxVoices`
-(default 12), and board clicks are panned left to right by column (`pan`, 0..1
-width). A soft clipper on the output rounds off the peaks of big bursts
+The default click is synthesized (no audio files) and modelled on a recorded
+flap: a soft strike centred between 1 and 2 kHz, the flap and housing ringing
+on for a few tens of milliseconds, and one small bounce. Pass `synth` to tune
+it (`body: 0, bounce: 0` gives a bare tick), or `sample` (an `AudioBuffer` or
+a URL) to use your own recording. Each click gets a small random pitch, volume
+and timing change (`variation`; flaps that land in the same frame are spread
+over up to 12 ms instead of hitting in unison), at most `maxVoices` (default 12) clicks overlap, with a new landing fading out the oldest, and board clicks
+are panned left to right by column (`pan`, 0..1 width). A soft clipper on the output rounds off the peaks of big bursts
 instead of letting them distort. If a sample URL fails to load, `unlock()`
 rejects but the synth click keeps playing.
 

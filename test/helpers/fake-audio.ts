@@ -2,6 +2,12 @@
 
 export class FakeParam {
     value = 0;
+    readonly targets: { target: number; at: number; timeConstant: number }[] =
+        [];
+
+    setTargetAtTime(target: number, at: number, timeConstant: number): void {
+        this.targets.push({ target, at, timeConstant });
+    }
 }
 
 export class FakeNode {
@@ -36,9 +42,14 @@ export class FakeSource extends FakeNode {
     readonly playbackRate = new FakeParam();
     onended: (() => void) | null = null;
     startedAt: number | null = null;
+    stoppedAt: number | null = null;
 
     start(when = 0): void {
         this.startedAt = when;
+    }
+
+    stop(when = 0): void {
+        this.stoppedAt = when;
     }
 
     /** Simulates the click finishing. */

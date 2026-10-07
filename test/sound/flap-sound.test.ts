@@ -67,7 +67,7 @@ describe('FlapSound', () => {
         expect(clipper.connections).toEqual([context.destination]);
         sound.play();
         const buffer = context.sources[0].buffer as FakeBuffer;
-        expect(buffer.length).toBe(1680);
+        expect(buffer.length).toBe(6720);
         expect(Array.from(buffer.getChannelData(0).slice(0, 5))).toEqual(
             Array.from(renderClick(48000).slice(0, 5))
         );
@@ -111,16 +111,31 @@ describe('FlapSound', () => {
         expect(context.sources[0].startedAt).toBe(1.5);
     });
 
-    it('caps overlapping clicks and frees a voice when one ends', async () => {
+    it('fades out the oldest click when every voice is busy', async () => {
         const { unit, context, sound } = setup({ maxVoices: 2 });
         await sound.unlock();
         unit.spin();
-        unit.update(50); // 5 landings
-        expect(context.sources).toHaveLength(2);
+        unit.update(30); // 3 landings
+        expect(context.sources).toHaveLength(3);
+        const [oldest, second, newest] = context.sources;
+        expect(context.gains[2].gain.targets).toEqual([
+            { target: 0, at: 1.5, timeConstant: 0.004 },
+        ]);
+        expect(oldest.stoppedAt).toBeCloseTo(1.52);
+        expect(second.stoppedAt).toBeNull();
+        expect(newest.stoppedAt).toBeNull();
+    });
+
+    it('frees a voice when its click ends', async () => {
+        const { unit, context, sound } = setup({ maxVoices: 2 });
+        await sound.unlock();
+        unit.spin();
+        unit.update(20); // 2 landings
         context.sources[0].end();
+        expect(context.sources[0].disconnected).toBe(true);
         unit.update(10);
         expect(context.sources).toHaveLength(3);
-        expect(context.sources[0].disconnected).toBe(true);
+        expect(context.sources[1].stoppedAt).toBeNull();
     });
 
     it('can start muted from the constructor', async () => {
