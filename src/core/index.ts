@@ -6,3 +6,12 @@ export {
     type PlannedPath,
     type PlanOptions,
 } from './plan-path';
+export {
+    DEFAULT_FLIP_DURATION,
+    FlapUnit,
+    type FlapUnitOptions,
+    type FlipEvent,
+    type UnitEvents,
+    type UnitOptions,
+    type UnitState,
+} from './unit';
