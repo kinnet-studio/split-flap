@@ -10,6 +10,7 @@ const result = await Bun.build({
         './src/core/index.ts',
         './src/canvas/index.ts',
         './src/pixi/index.ts',
+        './src/sound/index.ts',
     ],
     root: './src',
     outdir: './dist',

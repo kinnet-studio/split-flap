@@ -26,6 +26,7 @@ try {
     const core = await import('../dist/core/index.js');
     const canvasEntry = await import('../dist/canvas/index.js');
     const pixi = await import('../dist/pixi/index.js');
+    const sound = await import('../dist/sound/index.js');
 
     const keys = Object.keys(core).sort();
     const expected = [...EXPECTED_CORE_EXPORTS].sort();
@@ -46,6 +47,11 @@ try {
     check(
         typeof pixi.PixiFlapView === 'function',
         'pixi entry does not export PixiFlapView as a function'
+    );
+
+    check(
+        typeof sound.FlapSound === 'function',
+        'sound entry does not export FlapSound as a function'
     );
 } catch (error) {
     failures.push(`failed to load dist: ${String(error)}`);

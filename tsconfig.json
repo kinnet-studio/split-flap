@@ -13,7 +13,8 @@
         "paths": {
             "@kinnet-studio/split-flaps": ["./src/core/index.ts"],
             "@kinnet-studio/split-flaps/canvas": ["./src/canvas/index.ts"],
-            "@kinnet-studio/split-flaps/pixi": ["./src/pixi/index.ts"]
+            "@kinnet-studio/split-flaps/pixi": ["./src/pixi/index.ts"],
+            "@kinnet-studio/split-flaps/sound": ["./src/sound/index.ts"]
         }
     },
     "include": ["src", "test", "examples"],

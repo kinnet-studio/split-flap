@@ -43,6 +43,10 @@
             "types": "./dist/pixi/index.d.ts",
             "import": "./dist/pixi/index.js"
         },
+        "./sound": {
+            "types": "./dist/sound/index.d.ts",
+            "import": "./dist/sound/index.js"
+        },
         "./package.json": "./package.json"
     },
     "publishConfig": {

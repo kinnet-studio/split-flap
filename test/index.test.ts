@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import * as canvas from '../src/canvas';
 import * as core from '../src/core';
 import * as pixi from '../src/pixi';
+import * as sound from '../src/sound';
 
 describe('entry points', () => {
     it('exports the core runtime API', () => {
@@ -58,6 +59,17 @@ describe('entry points', () => {
                 'stackFlaps',
                 'textureFace',
             ])
+        );
+    });
+
+    it('exports the sound entry', () => {
+        expect(Object.keys(sound).sort()).toEqual(
+            [
+                'DEFAULT_SYNTH_CLICK',
+                'FlapSound',
+                'panTable',
+                'renderClick',
+            ].sort()
         );
     });
 });
