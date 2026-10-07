@@ -3,6 +3,14 @@
     "version": "0.1.0",
     "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kinnet-studio/split-flaps.git"
+    },
+    "homepage": "https://github.com/kinnet-studio/split-flaps#readme",
+    "bugs": {
+        "url": "https://github.com/kinnet-studio/split-flaps/issues"
+    },
     "type": "module",
     "sideEffects": [
         "./src/**/*.ts"
