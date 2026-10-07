@@ -151,7 +151,7 @@ async function departures(): Promise<void> {
 
     // The canvas renderer advances the board; the Pixi view only mirrors it.
     const initial = look(selected().theme, selected().finish);
-    let renderer = new CanvasFlapRenderer({
+    const renderer = new CanvasFlapRenderer({
         canvas: canvasById('departures-canvas'),
         target: board,
         face: initial.face,
@@ -171,7 +171,7 @@ async function departures(): Promise<void> {
         autoDensity: true,
     });
     document.getElementById('departures-pixi')?.append(app.canvas);
-    let view = new PixiFlapView({
+    const view = new PixiFlapView({
         target: board,
         face: initial.face,
         cell,
@@ -181,29 +181,13 @@ async function departures(): Promise<void> {
     app.stage.addChild(view);
     app.ticker.add(() => view.sync());
 
-    // Style and painters are fixed per renderer, so a new look rebuilds both.
+    // Switch both renderers to the new look in place.
     const restyle = () => {
         const next = look(selected().theme, selected().finish);
-        renderer.destroy();
-        renderer = new CanvasFlapRenderer({
-            canvas: canvasById('departures-canvas'),
-            target: board,
-            face: next.face,
-            cell,
-            gap,
-            style: next.style,
-        });
-        renderer.start();
-        app.stage.removeChild(view);
-        view.destroy();
-        view = new PixiFlapView({
-            target: board,
-            face: next.face,
-            cell,
-            gap,
-            style: next.style,
-        });
-        app.stage.addChild(view);
+        for (const target of [renderer, view]) {
+            target.setStyle(next.style);
+            target.setFace(next.face);
+        }
     };
     themeSelect?.addEventListener('change', restyle);
     finishSelect?.addEventListener('change', restyle);

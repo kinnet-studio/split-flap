@@ -165,6 +165,15 @@ style: {
 } // each theme suggests a hinge colour
 ```
 
+To change the look of a running board, call `setStyle` / `setFace` on the
+renderer (`CanvasFlapRenderer`) or view (`PixiFlapView`). `setStyle` replaces
+the whole style, so spread the current one to change a single value:
+
+```ts
+renderer.setStyle({ ...renderer.style, finish: 'matte' }); // Pixi: view.flapStyle
+renderer.setFace(textFace({ font, theme: 'airport' }));
+```
+
 Precedence: per-flap, then per-row, then explicit `color` / `background`, then
 the theme. Custom painters receive a fifth argument `{ row, field }`; set
 `perRow: true` on a painter whose output depends on the row so renderers cache
