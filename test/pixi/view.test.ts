@@ -126,6 +126,42 @@ describe('PixiFlapView', () => {
         expect(sprite.top.width).toBeCloseTo(40);
     });
 
+    it('has no stack sprites when the stack is off', () => {
+        const { sprite } = setupUnit();
+        expect(sprite.stack).toHaveLength(0);
+    });
+
+    it('stacks earlier flaps under the bottom half when the stack is on', () => {
+        const { sourceOf, face } = placeholderFaces();
+        const view = new PixiFlapView({
+            target: new FlapUnit({ sequence: seq }),
+            face,
+            cell: { w: 40, h: 60 },
+            style: { stack: { count: 2, step: 3 } },
+        });
+        const sprite = view.children[0] as UnitSprite;
+        // face is 60 - 2 × 3 = 54 px, so each half is 27 px
+        expect(sprite.top.height).toBeCloseTo(27);
+        expect(sprite.bottom.y).toBe(27);
+        // '-' is showing; the flaps before it on the drum are B, then A
+        const [first, second] = sprite.stack;
+        expect(first.texture.source).toBe(sourceOf('B'));
+        expect(first.y).toBe(30);
+        expect(first.height).toBeCloseTo(27);
+        expect(second.texture.source).toBe(sourceOf('A'));
+        expect(second.y).toBe(33);
+        const gray = (k: number) => Math.round(255 * (1 - k * 0.15));
+        expect(first.tint).toBe((gray(1) << 16) | (gray(1) << 8) | gray(1));
+        expect(second.tint).toBe((gray(2) << 16) | (gray(2) << 8) | gray(2));
+        // drawn behind the halves, deepest first
+        expect(sprite.getChildIndex(second)).toBeLessThan(
+            sprite.getChildIndex(first)
+        );
+        expect(sprite.getChildIndex(first)).toBeLessThan(
+            sprite.getChildIndex(sprite.bottom)
+        );
+    });
+
     it('advances with a ticker, capping the frame delta at 250 ms', () => {
         const { unit, view } = setupUnit();
         const { ticker, asTicker } = fakeTicker();
