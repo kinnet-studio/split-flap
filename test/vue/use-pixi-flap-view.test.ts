@@ -1,8 +1,16 @@
 // @vitest-environment jsdom
-import { type Application, Container, type Ticker } from 'pixi.js';
+import { type Application, Container, Ticker } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { effectScope, nextTick, reactive, shallowRef } from 'vue';
+import {
+    effectScope,
+    nextTick,
+    reactive,
+    shallowReactive,
+    shallowRef,
+} from 'vue';
 
+import { FlapBoard } from '../../src/core/board';
+import { textField } from '../../src/core/field';
 import { FlapSequence } from '../../src/core/sequence';
 import { FlapUnit } from '../../src/core/unit';
 import { PixiFlapView } from '../../src/pixi';
@@ -92,6 +100,122 @@ describe('usePixiFlapView (Vue)', () => {
         state.face = next;
         await nextTick();
         expect(setFace).toHaveBeenCalledWith(next);
+        scope.stop();
+    });
+
+    it('cleans up after the app was destroyed first', () => {
+        const ticker = new Ticker();
+        const stage = new Container();
+        const app = { stage, ticker } as unknown as Application;
+        const scope = effectScope();
+        const view = scope.run(() => usePixiFlapView(app, options()))!;
+        const created = view.value as PixiFlapView;
+        // What Application.destroy() leaves behind.
+        stage.destroy();
+        ticker.destroy();
+        Object.assign(app, { stage: null, ticker: null });
+        expect(() => scope.stop()).not.toThrow();
+        expect(created.destroyed).toBe(true);
+    });
+
+    it('applies cell changes with setLayout, resetting the gap', async () => {
+        const { app } = fakeApp();
+        const setLayout = vi.spyOn(PixiFlapView.prototype, 'setLayout');
+        const state = reactive({ cell: { w: 40, h: 60 } });
+        const scope = effectScope();
+        scope.run(() =>
+            usePixiFlapView(app, () => options({ cell: state.cell }))
+        );
+        state.cell = { w: 40, h: 60 };
+        await nextTick();
+        expect(setLayout).not.toHaveBeenCalled();
+        state.cell = { w: 20, h: 30 };
+        await nextTick();
+        expect(setLayout).toHaveBeenCalledWith({
+            cell: { w: 20, h: 30 },
+            gap: { unit: 0, field: 0, row: 0 },
+        });
+        scope.stop();
+    });
+
+    it('reads function options once, when the view is created', async () => {
+        const { app } = fakeApp();
+        const destroy = vi.spyOn(PixiFlapView.prototype, 'destroy');
+        const state = reactive({ flapStyle: { finish: 'matte' } as FlapStyle });
+        const scope = effectScope();
+        scope.run(() =>
+            usePixiFlapView(app, () =>
+                options({
+                    flapStyle: state.flapStyle,
+                    flipCurve: t => t,
+                    createCanvas: (w, h) => fakeCanvasFactory(w, h),
+                })
+            )
+        );
+        state.flapStyle = { finish: 'satin' };
+        await nextTick();
+        expect(destroy).not.toHaveBeenCalled();
+        scope.stop();
+    });
+
+    it('recreates the view for a new target or drive', async () => {
+        const { app, stage } = fakeApp();
+        const state = shallowReactive(options());
+        const scope = effectScope();
+        const view = scope.run(() => usePixiFlapView(app, state))!;
+        const first = view.value;
+        state.target = new FlapUnit({ sequence: FlapSequence.chars('-AB') });
+        await nextTick();
+        const second = view.value;
+        expect(second).not.toBe(first);
+        expect(first?.destroyed).toBe(true);
+        state.drive = false;
+        await nextTick();
+        expect(view.value).not.toBe(second);
+        expect(stage.children).toEqual([view.value]);
+        scope.stop();
+    });
+
+    it('swaps the target and its face map together, in any order', async () => {
+        const { app } = fakeApp();
+        const board = (fields: string[]) =>
+            new FlapBoard({
+                rows: 1,
+                schema: Object.fromEntries(
+                    fields.map(f => [
+                        f,
+                        textField({
+                            sequence: FlapSequence.chars('-AB'),
+                            length: 1,
+                        }),
+                    ])
+                ),
+            });
+        const faces = (fields: string[]) =>
+            Object.fromEntries(fields.map(f => [f, painter]));
+        const state = shallowReactive(
+            options({ target: board(['a', 'b']), face: faces(['a', 'b']) })
+        );
+        const scope = effectScope();
+        const view = scope.run(() => usePixiFlapView(app, state))!;
+        state.face = faces(['c']);
+        state.target = board(['c']);
+        await nextTick();
+        expect(view.value?.children).toHaveLength(1);
+        scope.stop();
+    });
+
+    it('follows the app ref back to null', async () => {
+        const { app, stage } = fakeApp();
+        const appRef = shallowRef<Application | null>(app);
+        const scope = effectScope();
+        const view = scope.run(() => usePixiFlapView(appRef, options()))!;
+        const created = view.value as PixiFlapView;
+        appRef.value = null;
+        await nextTick();
+        expect(view.value).toBeNull();
+        expect(stage.children).toHaveLength(0);
+        expect(created.destroyed).toBe(true);
         scope.stop();
     });
 

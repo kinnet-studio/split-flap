@@ -23,6 +23,10 @@ import type { FlapStyle } from '../render/style.js';
 /**
  * A `<canvas>` drawn by a CanvasFlapRenderer for `target`. `class` and
  * `style` attributes apply to the wrapper `<div>`, which `fit` measures.
+ *
+ * `target`, `fit` and `drive` recreate the renderer. `cell`, `gap`,
+ * `flapStyle` and `face` are applied with its setters. `flipCurve`, `dpr`,
+ * `createCanvas` and `scheduler` are read once, when it is created.
  */
 export const SplitFlapCanvas = defineComponent({
     name: 'SplitFlapCanvas',
@@ -64,21 +68,26 @@ export const SplitFlapCanvas = defineComponent({
         const wrapper = ref<HTMLDivElement | null>(null);
         const canvas = ref<HTMLCanvasElement | null>(null);
         let renderer: CanvasFlapRenderer | null = null;
-        const applied = {
-            layout: undefined as unknown,
-            style: undefined as unknown,
-            face: undefined as unknown,
-        };
-        const layoutKey = () => contentKey([props.cell, props.gap]);
+        const inputs = () => ({
+            target: props.target,
+            fit: props.fit,
+            drive: props.drive,
+            layout: contentKey([props.cell, props.gap]),
+            style: contentKey(props.flapStyle),
+            face: props.face,
+        });
+        type Inputs = ReturnType<typeof inputs>;
+        // What the renderer was created with, updated as the setters run.
+        let applied: Inputs | null = null;
 
-        const create = () => {
+        const create = (next: Inputs) => {
             if (!canvas.value || !wrapper.value) {
                 return;
             }
             renderer = new CanvasFlapRenderer({
                 canvas: canvas.value,
-                target: props.target,
-                face: props.face,
+                target: next.target,
+                face: next.face,
                 cell: props.cell,
                 gap: props.gap,
                 style: props.flapStyle,
@@ -86,69 +95,57 @@ export const SplitFlapCanvas = defineComponent({
                 dpr: props.dpr,
                 createCanvas: props.createCanvas,
                 scheduler: props.scheduler,
-                fit: props.fit
-                    ? { element: wrapper.value, mode: props.fit }
+                fit: next.fit
+                    ? { element: wrapper.value, mode: next.fit }
                     : undefined,
             });
-            applied.layout = layoutKey();
-            applied.style = contentKey(props.flapStyle);
-            applied.face = props.face;
-            renderer.start({ update: props.drive });
+            applied = { ...next };
+            renderer.start({ update: next.drive });
         };
         const destroy = () => {
             renderer?.destroy();
             renderer = null;
+            applied = null;
         };
-
-        onMounted(create);
-        onBeforeUnmount(destroy);
-        watch(
-            [
-                () => props.target,
-                () => props.fit,
-                () => props.drive,
-                () => props.flipCurve,
-                () => props.dpr,
-                () => props.createCanvas,
-                () => props.scheduler,
-            ],
-            () => {
+        // One watcher, so a target and the face map for it always arrive
+        // together, whatever order the props change in.
+        const sync = (next: Inputs) => {
+            if (
+                !renderer ||
+                !applied ||
+                next.target !== applied.target ||
+                next.fit !== applied.fit ||
+                next.drive !== applied.drive
+            ) {
                 destroy();
-                create();
+                create(next);
+                return;
             }
-        );
-        watch(layoutKey, key => {
-            if (renderer && key !== applied.layout) {
+            if (next.layout !== applied.layout) {
                 // Explicit zeros so a removed gap resets instead of merging.
                 renderer.setLayout({
                     cell: props.cell,
                     gap: { unit: 0, field: 0, row: 0, ...props.gap },
                 });
-                applied.layout = key;
+                applied.layout = next.layout;
             }
-        });
-        watch(
-            () => contentKey(props.flapStyle),
-            key => {
-                if (renderer && key !== applied.style) {
-                    renderer.setStyle(props.flapStyle ?? {});
-                    applied.style = key;
-                }
+            if (next.style !== applied.style) {
+                renderer.setStyle(props.flapStyle ?? {});
+                applied.style = next.style;
             }
-        );
-        watch(
-            () => props.face,
-            face => {
-                if (renderer && face !== applied.face) {
-                    renderer.setFace(face);
-                    applied.face = face;
-                }
+            if (next.face !== applied.face) {
+                renderer.setFace(next.face);
+                applied.face = next.face;
             }
-        );
+        };
+
+        onMounted(() => create(inputs()));
+        onBeforeUnmount(destroy);
+        watch(inputs, sync);
 
         return () =>
             h('div', { ref: wrapper, style: { display: 'block' } }, [
-                h('canvas', { ref: canvas }),
+                h('canvas', { ref: canvas, style: { display: 'block' } }),
             ]);
     },
 });

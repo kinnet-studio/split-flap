@@ -12,6 +12,8 @@ export interface UseFlapBoardOptions<S extends Schema> extends BoardOptions<S> {
     /**
      * Shown with `board.show()` immediately and whenever its content changes.
      * May be an array, a ref or a getter; nested changes are tracked.
+     * Content is compared as JSON: use plain data (a class whose data lives
+     * in getters serializes as `{}`).
      */
     value?: MaybeRefOrGetter<readonly RowValues<S>[] | undefined>;
 }
