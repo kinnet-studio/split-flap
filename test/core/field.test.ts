@@ -134,6 +134,17 @@ describe('FlapField', () => {
         expect(settled).toBe(1);
     });
 
+    it('emits settled once when a unit is driven directly', () => {
+        const field = text(2);
+        let settled = 0;
+        field.on('settled', () => settled++);
+        field.units[1].setTarget('B');
+        field.update(1000);
+        field.update(1000);
+        expect(field.isSettled).toBe(true);
+        expect(settled).toBe(1);
+    });
+
     it('spins and stops', () => {
         const field = text(2);
         field.spin();

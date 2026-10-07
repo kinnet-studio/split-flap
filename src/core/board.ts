@@ -126,11 +126,11 @@ export class FlapBoard<S extends Schema> {
     }
 
     field<K extends keyof S & string>(row: number, name: K): BoardField<S, K> {
-        const field = this.rowFields(row)[name];
-        if (!field) {
+        const fields = this.rowFields(row);
+        if (!Object.hasOwn(fields, name)) {
             throw new RangeError(`FlapBoard: unknown field "${name}"`);
         }
-        return field as BoardField<S, K>;
+        return fields[name] as BoardField<S, K>;
     }
 
     /** Partial updates for one row; fields not named keep their content. */
@@ -144,7 +144,7 @@ export class FlapBoard<S extends Schema> {
         };
     }
 
-    /** Sets the whole board and cancels any playlist. */
+    /** Sets the whole board and cancels any playlist. Missing fields and rows go to their pad flap. */
     show(rows: readonly RowValues<S>[]): void {
         this.playlist = null;
         this.applyRows(rows);
@@ -185,6 +185,10 @@ export class FlapBoard<S extends Schema> {
         if (!(dt > 0) || !Number.isFinite(dt)) {
             return;
         }
+        // Children are public API; work started on them directly counts too.
+        if (!this.isSettled) {
+            this.wasSettled = false;
+        }
         this.eachField(field => field.update(dt));
         this.playlist?.update(dt);
         if (this.isSettled && !this.wasSettled) {
@@ -208,11 +212,10 @@ export class FlapBoard<S extends Schema> {
         const fields = this.rows[row];
         for (const name of this.fieldNames) {
             const value = values[name];
-            const delays = this.delaysFor(row, name);
             if (value !== undefined) {
-                fields[name].set(value, { delays });
+                fields[name].set(value, { delays: this.delaysFor(row, name) });
             } else if (clearMissing) {
-                fields[name].clear({ delays });
+                fields[name].clear({ delays: this.delaysFor(row, name) });
             }
         }
     }

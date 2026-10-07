@@ -156,6 +156,10 @@ export class FlapField<T, V = T | T[]> {
     }
 
     update(dt: number): void {
+        // `units` is public API; work started on a unit directly counts too.
+        if (!this.isSettled) {
+            this.wasSettled = false;
+        }
         this.units.forEach(unit => unit.update(dt));
         if (this.isSettled && !this.wasSettled) {
             this.wasSettled = true;

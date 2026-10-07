@@ -104,6 +104,36 @@ describe('FlapBoard', () => {
         expect(settled).toBe(1);
     });
 
+    it('emits settled once when a field is driven directly', () => {
+        const board = makeBoard();
+        let settled = 0;
+        board.on('settled', () => settled++);
+        board.field(0, 'plat').set('AB');
+        board.update(1000);
+        board.update(1000);
+        expect(board.isSettled).toBe(true);
+        expect(settled).toBe(1);
+    });
+
+    it('rejects names that are not in the schema', () => {
+        const board = makeBoard();
+        expect(() => board.field(0, 'toString' as never)).toThrow(RangeError);
+    });
+
+    it('does not consume random for fields a row update leaves alone', () => {
+        let calls = 0;
+        const board = makeBoard({
+            order: 'random',
+            step: 10,
+            random: () => {
+                calls++;
+                return 0.5;
+            },
+        });
+        board.row(0).set({ plat: 'A' });
+        expect(calls).toBe(2);
+    });
+
     it('emits flipend with row, field and unit', () => {
         const board = makeBoard();
         const flips: unknown[] = [];
