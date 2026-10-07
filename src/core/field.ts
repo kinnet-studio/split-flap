@@ -1,5 +1,6 @@
 import { Emitter } from './emitter.js';
 import type { FlapSequence } from './sequence.js';
+import { checkTimeScale } from './time-scale.js';
 import { FlapUnit, type FlipEvent, type UnitOptions } from './unit.js';
 
 export interface FieldStagger {
@@ -86,6 +87,7 @@ export class FlapField<T, V = T | T[]> {
     private readonly toFlaps: (value: V) => T[];
     private readonly emitter = new Emitter<FieldEvents<T>>();
     private wasSettled = true;
+    private scale = 1;
 
     constructor(spec: FieldSpec<T, V>) {
         if (!Number.isInteger(spec.length) || spec.length < 1) {
@@ -155,12 +157,26 @@ export class FlapField<T, V = T | T[]> {
         this.units.forEach(unit => unit.stop());
     }
 
+    /**
+     * Multiplies every `dt` passed to {@link update}: 2 runs twice as fast,
+     * 0.5 at half speed, 0 pauses. Compounds with parent scales.
+     */
+    get timeScale(): number {
+        return this.scale;
+    }
+
+    set timeScale(value: number) {
+        this.scale = checkTimeScale(value, 'FlapField');
+    }
+
+    /** Advances every unit by `dt` ms (times {@link timeScale}). */
     update(dt: number): void {
         // `units` is public API; work started on a unit directly counts too.
         if (!this.isSettled) {
             this.wasSettled = false;
         }
-        this.units.forEach(unit => unit.update(dt));
+        const scaled = dt * this.scale;
+        this.units.forEach(unit => unit.update(scaled));
         if (this.isSettled && !this.wasSettled) {
             this.wasSettled = true;
             this.emitter.emit('settled', {});

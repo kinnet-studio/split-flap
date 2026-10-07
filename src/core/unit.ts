@@ -1,6 +1,7 @@
 import { Emitter } from './emitter.js';
 import { type Cycle, type Direction, planPath } from './plan-path.js';
 import type { FlapSequence } from './sequence.js';
+import { checkTimeScale } from './time-scale.js';
 
 export const DEFAULT_FLIP_DURATION = 80;
 
@@ -67,6 +68,7 @@ export class FlapUnit<T> {
     private spinning = false;
     private targetIndex: number | null;
     private wasSettled = true;
+    private scale = 1;
 
     constructor(options: FlapUnitOptions<T>) {
         const flipDuration = options.flipDuration ?? DEFAULT_FLIP_DURATION;
@@ -174,17 +176,31 @@ export class FlapUnit<T> {
     }
 
     /**
-     * Advances time by `dt` ms. Overshoot carries into the next flip.
+     * Multiplies every `dt` passed to {@link update}: 2 runs twice as fast,
+     * 0.5 at half speed, 0 pauses. Compounds with parent scales.
+     */
+    get timeScale(): number {
+        return this.scale;
+    }
+
+    set timeScale(value: number) {
+        this.scale = checkTimeScale(value, 'FlapUnit');
+    }
+
+    /**
+     * Advances time by `dt` ms (times {@link timeScale}). Overshoot carries
+     * into the next flip.
      *
      * A spinning unit with no flip pending fast-forwards whole revolutions
      * when `dt` is huge, so the cost does not grow with `dt`. The visible end
      * state is identical; the skipped flips emit no events.
      */
     update(dt: number): void {
-        if (!(dt > 0) || !Number.isFinite(dt)) {
+        const scaled = dt * this.scale;
+        if (!(scaled > 0) || !Number.isFinite(scaled)) {
             return;
         }
-        let remaining = dt;
+        let remaining = scaled;
         for (;;) {
             let flip = this.flip;
             if (flip === null) {
