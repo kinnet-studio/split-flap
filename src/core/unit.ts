@@ -1,6 +1,6 @@
-import { Emitter } from './emitter';
-import { type Cycle, type Direction, planPath } from './plan-path';
-import type { FlapSequence } from './sequence';
+import { Emitter } from './emitter.js';
+import { type Cycle, type Direction, planPath } from './plan-path.js';
+import type { FlapSequence } from './sequence.js';
 
 export const DEFAULT_FLIP_DURATION = 80;
 

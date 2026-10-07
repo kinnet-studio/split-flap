@@ -1,7 +1,7 @@
 import { CanvasSource, type ICanvas, Rectangle, Texture } from 'pixi.js';
 
-import { type CanvasFactory, FaceCache } from '../render/face-cache';
-import type { FacePainter } from '../render/faces';
+import { type CanvasFactory, FaceCache } from '../render/face-cache.js';
+import type { FacePainter } from '../render/faces.js';
 
 /** A face backed by ready-made Pixi textures instead of a painter. */
 export interface TextureFace<T> {

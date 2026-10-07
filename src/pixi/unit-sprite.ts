@@ -1,10 +1,10 @@
 import { Color, Container, Sprite, Texture } from 'pixi.js';
 
-import type { UnitState } from '../core/unit';
-import type { FlipCurve } from '../render/flip-curve';
-import { type FaceRef, flipGeometry } from '../render/flip-geometry';
-import type { ResolvedFlapStyle } from '../render/style';
-import type { HalfTextures } from './textures';
+import type { UnitState } from '../core/unit.js';
+import type { FlipCurve } from '../render/flip-curve.js';
+import { type FaceRef, flipGeometry } from '../render/flip-geometry.js';
+import type { ResolvedFlapStyle } from '../render/style.js';
+import type { HalfTextures } from './textures.js';
 
 /** Scene graph for one unit: static halves, moving flap, shadow and hinge. */
 export class UnitSprite extends Container {

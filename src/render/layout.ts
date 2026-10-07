@@ -1,7 +1,7 @@
-import { FlapBoard } from '../core/board';
-import { FlapField } from '../core/field';
-import type { FlapSequence } from '../core/sequence';
-import { FlapUnit } from '../core/unit';
+import { FlapBoard } from '../core/board.js';
+import { FlapField } from '../core/field.js';
+import type { FlapSequence } from '../core/sequence.js';
+import { FlapUnit } from '../core/unit.js';
 
 export interface Rect {
     x: number;

@@ -1,6 +1,6 @@
-import { Emitter } from './emitter';
-import type { FlapSequence } from './sequence';
-import { FlapUnit, type FlipEvent, type UnitOptions } from './unit';
+import { Emitter } from './emitter.js';
+import type { FlapSequence } from './sequence.js';
+import { FlapUnit, type FlipEvent, type UnitOptions } from './unit.js';
 
 export interface FieldStagger {
     order: 'sequential' | 'reverse' | 'random' | 'none';

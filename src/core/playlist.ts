@@ -1,4 +1,4 @@
-import type { RowValues, Schema } from './board';
+import type { RowValues, Schema } from './board.js';
 
 export type Message<S extends Schema> =
     | readonly RowValues<S>[]

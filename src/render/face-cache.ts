@@ -1,4 +1,4 @@
-import type { Ctx2D, FacePainter } from './faces';
+import type { Ctx2D, FacePainter } from './faces.js';
 
 /** The parts of HTMLCanvasElement / OffscreenCanvas the cache needs. */
 export interface FaceCanvas {

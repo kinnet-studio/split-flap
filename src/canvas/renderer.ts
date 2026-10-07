@@ -1,20 +1,20 @@
-import { type CanvasFactory, FaceCache } from '../render/face-cache';
-import type { FacePainter } from '../render/faces';
-import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve';
-import { MAX_FRAME_DT } from '../render/frame';
+import { type CanvasFactory, FaceCache } from '../render/face-cache.js';
+import type { FacePainter } from '../render/faces.js';
+import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
+import { MAX_FRAME_DT } from '../render/frame.js';
 import {
     type BoardLayout,
     layout,
     type LayoutOptions,
     type RenderTarget,
     type UnitSlot,
-} from '../render/layout';
+} from '../render/layout.js';
 import {
     type FlapStyle,
     resolveStyle,
     type ResolvedFlapStyle,
-} from '../render/style';
-import { drawUnit } from './draw-unit';
+} from '../render/style.js';
+import { drawUnit } from './draw-unit.js';
 
 export interface FrameScheduler {
     request(callback: (time: number) => void): number;

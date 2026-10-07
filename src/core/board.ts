@@ -1,7 +1,7 @@
-import { Emitter } from './emitter';
-import { type FieldSpec, fieldStaggerDelays, FlapField } from './field';
-import { type Message, type PlayOptions, Playlist } from './playlist';
-import type { FlipEvent } from './unit';
+import { Emitter } from './emitter.js';
+import { type FieldSpec, fieldStaggerDelays, FlapField } from './field.js';
+import { type Message, type PlayOptions, Playlist } from './playlist.js';
+import type { FlipEvent } from './unit.js';
 
 /** A board schema: field name → field spec. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

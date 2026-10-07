@@ -1,22 +1,22 @@
 import { Container, type DestroyOptions, type Ticker } from 'pixi.js';
 
-import type { CanvasFactory } from '../render/face-cache';
-import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve';
-import { MAX_FRAME_DT } from '../render/frame';
+import type { CanvasFactory } from '../render/face-cache.js';
+import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
+import { MAX_FRAME_DT } from '../render/frame.js';
 import {
     type BoardLayout,
     layout,
     type LayoutOptions,
     type RenderTarget,
     type UnitSlot,
-} from '../render/layout';
+} from '../render/layout.js';
 import {
     type FlapStyle,
     resolveStyle,
     type ResolvedFlapStyle,
-} from '../render/style';
-import { FaceTextures, isTextureFace, type PixiFace } from './textures';
-import { UnitSprite } from './unit-sprite';
+} from '../render/style.js';
+import { FaceTextures, isTextureFace, type PixiFace } from './textures.js';
+import { UnitSprite } from './unit-sprite.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface PixiFlapViewOptions extends LayoutOptions {
