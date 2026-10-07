@@ -1,4 +1,5 @@
-import type { Ctx2D, FacePainter } from './faces.js';
+import type { Ctx2D, FaceContext, FacePainter } from './faces.js';
+import { finishFace } from './finish.js';
 
 /** The parts of HTMLCanvasElement / OffscreenCanvas the cache needs. */
 export interface FaceCanvas {
@@ -30,6 +31,12 @@ export interface FaceCacheOptions<T> {
     /** Corner radius in CSS px. Default 0. */
     radius?: number;
     createCanvas?: CanvasFactory;
+    /** 0..1 grain baked into each face. Default 0. */
+    grain?: number;
+    /** 0..1 light falloff baked into each face. Default 0. */
+    light?: number;
+    /** Passed to the painter. Default `{ row: 0, field: '' }`. */
+    context?: FaceContext;
 }
 
 /** Paints each flap face once into an offscreen canvas and reuses it. */
@@ -39,6 +46,9 @@ export class FaceCache<T> {
     private readonly painter: FacePainter<T>;
     private readonly radius: number;
     private readonly createCanvas: CanvasFactory;
+    private readonly grain: number;
+    private readonly light: number;
+    private readonly context: FaceContext;
     private width: number;
     private height: number;
     private dpr: number;
@@ -51,6 +61,9 @@ export class FaceCache<T> {
         this.dpr = options.dpr ?? 1;
         this.radius = options.radius ?? 0;
         this.createCanvas = options.createCanvas ?? defaultCanvasFactory;
+        this.grain = options.grain ?? 0;
+        this.light = options.light ?? 0;
+        this.context = options.context ?? { row: 0, field: '' };
     }
 
     get size(): number {
@@ -63,7 +76,7 @@ export class FaceCache<T> {
         if (cached) {
             return cached;
         }
-        const face = this.paint(flap);
+        const face = this.paint(flap, key);
         this.faces.set(key, face);
         return face;
     }
@@ -79,7 +92,7 @@ export class FaceCache<T> {
         this.faces.clear();
     }
 
-    private paint(flap: T): FaceCanvas {
+    private paint(flap: T, key: string): FaceCanvas {
         const canvas = this.createCanvas(
             Math.max(1, Math.round(this.width * this.dpr)),
             Math.max(1, Math.round(this.height * this.dpr))
@@ -94,7 +107,14 @@ export class FaceCache<T> {
             ctx.roundRect(0, 0, this.width, this.height, this.radius);
             ctx.clip();
         }
-        this.painter(ctx, flap, this.width, this.height);
+        this.painter(ctx, flap, this.width, this.height, this.context);
+        finishFace(
+            ctx,
+            this.width,
+            this.height,
+            { grain: this.grain, light: this.light },
+            key
+        );
         return canvas;
     }
 }
