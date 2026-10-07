@@ -37,3 +37,4 @@ export {
     type Schema,
     type ValueOf,
 } from './board';
+export { DEFAULT_HOLD, type Message, type PlayOptions } from './playlist';

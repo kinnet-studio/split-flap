@@ -1,5 +1,6 @@
 import { Emitter } from './emitter';
 import { type FieldSpec, fieldStaggerDelays, FlapField } from './field';
+import { type Message, type PlayOptions, Playlist } from './playlist';
 import type { FlipEvent } from './unit';
 
 /** A board schema: field name → field spec. */
@@ -68,6 +69,7 @@ export class FlapBoard<S extends Schema> {
     private readonly maxColumn: number;
     private readonly emitter = new Emitter<BoardEvents<S>>();
     private wasSettled = true;
+    private playlist: Playlist<S> | null = null;
 
     constructor(options: BoardOptions<S>) {
         if (!Number.isInteger(options.rows) || options.rows < 1) {
@@ -142,17 +144,40 @@ export class FlapBoard<S extends Schema> {
         };
     }
 
-    /** Sets the whole board. Missing fields and rows go to their pad flap. */
+    /** Sets the whole board and cancels any playlist. */
     show(rows: readonly RowValues<S>[]): void {
+        this.playlist = null;
         this.applyRows(rows);
     }
 
+    /** Cycles through messages, holding each one after the board settles. */
+    play(messages: readonly Message<S>[], options: PlayOptions = {}): void {
+        const playlist = new Playlist<S>(
+            {
+                applyRows: rows => this.applyRows(rows),
+                isSettled: () => this.isSettled,
+                messageChanged: index =>
+                    this.emitter.emit('messagechange', { index }),
+                ended: () => {
+                    this.playlist = null;
+                    this.emitter.emit('playlistend', {});
+                },
+            },
+            messages,
+            options
+        );
+        this.playlist = playlist;
+        playlist.start();
+    }
+
     spin(): void {
+        this.playlist = null;
         this.eachField(field => field.spin());
         this.markUnsettled();
     }
 
     stop(): void {
+        this.playlist = null;
         this.eachField(field => field.stop());
     }
 
@@ -161,6 +186,7 @@ export class FlapBoard<S extends Schema> {
             return;
         }
         this.eachField(field => field.update(dt));
+        this.playlist?.update(dt);
         if (this.isSettled && !this.wasSettled) {
             this.wasSettled = true;
             this.emitter.emit('settled', {});
