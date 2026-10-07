@@ -28,7 +28,7 @@
         "./package.json": "./package.json"
     },
     "scripts": {
-        "build": "rm -rf dist && bun scripts/build.ts && tsc -p tsconfig.build.json",
+        "build": "rm -rf dist && bun scripts/build.ts && tsc -p tsconfig.build.json && bun scripts/check-dist.ts",
         "dev": "vite --config examples/vite.config.ts",
         "test": "vitest run",
         "test:watch": "vitest",
