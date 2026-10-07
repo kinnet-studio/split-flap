@@ -1,5 +1,5 @@
 {
-    "name": "@kinnet-studio/split-flaps",
+    "name": "@kinnet-studio/split-flap",
     "version": "0.1.1",
     "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
     "keywords": [
@@ -15,11 +15,11 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/kinnet-studio/split-flaps.git"
+        "url": "git+https://github.com/kinnet-studio/split-flap.git"
     },
-    "homepage": "https://github.com/kinnet-studio/split-flaps#readme",
+    "homepage": "https://github.com/kinnet-studio/split-flap#readme",
     "bugs": {
-        "url": "https://github.com/kinnet-studio/split-flaps/issues"
+        "url": "https://github.com/kinnet-studio/split-flap/issues"
     },
     "type": "module",
     "sideEffects": [

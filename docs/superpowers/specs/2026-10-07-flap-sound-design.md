@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-07
 **Status:** Approved in brainstorming; awaiting written-spec review
-**Package:** `@kinnet-studio/split-flaps`, new entry point `@kinnet-studio/split-flaps/sound`
+**Package:** `@kinnet-studio/split-flap`, new entry point `@kinnet-studio/split-flap/sound`
 
 ## Summary
 

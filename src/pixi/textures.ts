@@ -5,7 +5,7 @@ import type { FaceContext, FacePainter } from '../render/faces.js';
 
 /** A face backed by ready-made Pixi textures instead of a painter. */
 export interface TextureFace<T> {
-    readonly kind: 'split-flaps/texture-face';
+    readonly kind: 'split-flap/texture-face';
     texture(flap: T): Texture;
 }
 
@@ -13,14 +13,14 @@ export type PixiFace<T> = FacePainter<T> | TextureFace<T>;
 
 /** Wraps a texture lookup so it can be told apart from a face painter. */
 export function textureFace<T>(texture: (flap: T) => Texture): TextureFace<T> {
-    return { kind: 'split-flaps/texture-face', texture };
+    return { kind: 'split-flap/texture-face', texture };
 }
 
 export function isTextureFace(value: unknown): value is TextureFace<unknown> {
     return (
         typeof value === 'object' &&
         value !== null &&
-        (value as { kind?: unknown }).kind === 'split-flaps/texture-face'
+        (value as { kind?: unknown }).kind === 'split-flap/texture-face'
     );
 }
 

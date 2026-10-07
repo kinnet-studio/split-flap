@@ -1,8 +1,5 @@
-import type { ThemeName } from '@kinnet-studio/split-flaps/canvas';
-import {
-    SplitFlapCanvas,
-    useFlapBoard,
-} from '@kinnet-studio/split-flaps/react';
+import type { ThemeName } from '@kinnet-studio/split-flap/canvas';
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flap/react';
 import { type ChangeEvent, createElement, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 

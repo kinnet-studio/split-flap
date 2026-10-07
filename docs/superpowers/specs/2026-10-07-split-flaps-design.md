@@ -1,4 +1,4 @@
-# @kinnet-studio/split-flaps — Design
+# @kinnet-studio/split-flap — Design
 
 **Date:** 2026-10-07
 **Status:** Approved in brainstorming; awaiting written-spec review
@@ -33,11 +33,11 @@ convenient abstraction. Renderers mirror the same layering.
 
 ## Package
 
-- Name: `@kinnet-studio/split-flaps`, ESM only, version `0.1.0`, MIT.
+- Name: `@kinnet-studio/split-flap`, ESM only, version `0.1.0`, MIT.
 - One package, three entry points:
-  - `@kinnet-studio/split-flaps` — core (zero runtime dependencies in this code path)
-  - `@kinnet-studio/split-flaps/canvas` — Canvas 2D renderer
-  - `@kinnet-studio/split-flaps/pixi` — Pixi v8 renderer
+  - `@kinnet-studio/split-flap` — core (zero runtime dependencies in this code path)
+  - `@kinnet-studio/split-flap/canvas` — Canvas 2D renderer
+  - `@kinnet-studio/split-flap/pixi` — Pixi v8 renderer
 - Dependencies: `@ue-too/animate` (regular dependency; imported only by render code).
 - Peer dependencies: `pixi.js@^8` marked optional via `peerDependenciesMeta`; imported only by
   `/pixi`.

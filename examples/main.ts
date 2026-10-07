@@ -6,7 +6,7 @@ import {
     FlapSequence,
     type RowValues,
     textField,
-} from '@kinnet-studio/split-flaps';
+} from '@kinnet-studio/split-flap';
 import {
     CanvasFlapRenderer,
     colorFace,
@@ -15,9 +15,9 @@ import {
     type FlapStyle,
     textFace,
     type ThemeName,
-} from '@kinnet-studio/split-flaps/canvas';
-import { PixiFlapView } from '@kinnet-studio/split-flaps/pixi';
-import { FlapSound } from '@kinnet-studio/split-flaps/sound';
+} from '@kinnet-studio/split-flap/canvas';
+import { PixiFlapView } from '@kinnet-studio/split-flap/pixi';
+import { FlapSound } from '@kinnet-studio/split-flap/sound';
 import { Application } from 'pixi.js';
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);

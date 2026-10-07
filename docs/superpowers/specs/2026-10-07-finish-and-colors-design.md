@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-07
 **Status:** Approved in brainstorming; awaiting written-spec review
-**Package:** `@kinnet-studio/split-flaps` (`/canvas`, `/pixi` and shared `src/render`)
+**Package:** `@kinnet-studio/split-flap` (`/canvas`, `/pixi` and shared `src/render`)
 
 ## Summary
 

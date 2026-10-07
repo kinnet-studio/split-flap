@@ -1,5 +1,5 @@
-import type { ThemeName } from '@kinnet-studio/split-flaps/canvas';
-import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/vue';
+import type { ThemeName } from '@kinnet-studio/split-flap/canvas';
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flap/vue';
 import { computed, createApp, defineComponent, h, ref } from 'vue';
 
 import {

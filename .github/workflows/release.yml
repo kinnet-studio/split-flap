@@ -26,7 +26,7 @@ concurrency: release
 
 jobs:
     release:
-        name: Publish @kinnet-studio/split-flaps to npm
+        name: Publish @kinnet-studio/split-flap to npm
         runs-on: ubuntu-latest
         steps:
             - name: Fail unless on main or a version branch
@@ -71,7 +71,7 @@ jobs:
                   else
                       BUMP=$VERSION_TYPE
                   fi
-                  npm version "$BUMP" -m "chore(release): split-flaps %s"
+                  npm version "$BUMP" -m "chore(release): split-flap %s"
                   echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
             # prepublishOnly builds dist and runs the dist check
             - name: Publish
@@ -94,5 +94,5 @@ jobs:
               run: |
                   gh release create "v$VERSION" \
                       --repo "$GITHUB_REPOSITORY" \
-                      --title "split-flaps $VERSION" \
+                      --title "split-flap $VERSION" \
                       --generate-notes
