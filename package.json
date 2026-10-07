@@ -4,7 +4,9 @@
     "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
     "license": "MIT",
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./src/**/*.ts"
+    ],
     "files": [
         "dist"
     ],
