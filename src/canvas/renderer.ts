@@ -226,21 +226,32 @@ export class CanvasFlapRenderer {
     }
 
     private facesFor(slot: UnitSlot): FaceCache<any> {
-        const cached = this.caches.get(slot.field);
+        const painter = this.painterFor(slot.field);
+        // A perRow painter's faces differ by row, so they get a cache per row.
+        const cacheKey = painter.perRow
+            ? `${slot.field}\u0000${slot.row}`
+            : slot.field;
+        const cached = this.caches.get(cacheKey);
         if (cached) {
             return cached;
         }
         const cache = new FaceCache<any>({
             key: flap => slot.sequence.key(flap),
-            painter: this.painterFor(slot.field),
+            painter,
             width: slot.rect.w,
             // Faces fill the cell minus the covered-flap stack.
             height: slot.rect.h - stackDepth(this.style),
             dpr: this.dpr * this.zoom,
             radius: this.style.radius,
             createCanvas: this.options.createCanvas,
+            grain: this.style.grain,
+            light: this.style.light,
+            context: {
+                row: painter.perRow ? slot.row : 0,
+                field: slot.field,
+            },
         });
-        this.caches.set(slot.field, cache);
+        this.caches.set(cacheKey, cache);
         return cache;
     }
 

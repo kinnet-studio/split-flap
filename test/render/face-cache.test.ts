@@ -35,7 +35,10 @@ describe('FaceCache', () => {
         expect(face.context.callsNamed('setTransform')[0].args).toEqual([
             2, 0, 0, 2, 0, 0,
         ]);
-        expect(painter).toHaveBeenCalledWith(face.context, 'A', 40, 60);
+        expect(painter).toHaveBeenCalledWith(face.context, 'A', 40, 60, {
+            row: 0,
+            field: '',
+        });
     });
 
     it('clips to a rounded rect when radius > 0', () => {

@@ -11,6 +11,9 @@ describe('resolveStyle', () => {
             hingeColor: 'rgba(0, 0, 0, 0.6)',
             shade: 0.5,
             shadow: 0.35,
+            finish: 'gloss',
+            grain: 0,
+            light: 0,
             stack: null,
         });
     });

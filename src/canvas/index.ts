@@ -10,10 +10,15 @@ export {
 } from './draw-unit.js';
 export {
     colorFace,
+    FLAP_THEMES,
     textFace,
     type Ctx2D,
+    type FaceContext,
     type FacePainter,
+    type FlapColors,
+    type FlapTheme,
     type TextFaceOptions,
+    type ThemeName,
 } from '../render/faces.js';
 export {
     defaultCanvasFactory,
@@ -46,7 +51,10 @@ export {
 export {
     DEFAULT_STACK_SHADE,
     DEFAULT_STYLE,
+    FINISH_PRESETS,
     resolveStyle,
+    type Finish,
+    type FinishValues,
     type FlapStack,
     type FlapStyle,
     type ResolvedFlapStack,
@@ -54,4 +62,5 @@ export {
 } from '../render/style.js';
 export { stackDepth, stackFlaps } from '../render/stack.js';
 export { fitScale, type FitMode, type Size } from '../render/fit.js';
+export { finishFace, type FaceFinish } from '../render/finish.js';
 export { MAX_FRAME_DT } from '../render/frame.js';

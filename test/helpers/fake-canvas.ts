@@ -10,6 +10,17 @@ export interface RecordedCall {
     composite: string;
 }
 
+/** A recorded linear gradient: its geometry and colour stops. */
+export class FakeGradient {
+    readonly stops: [number, string][] = [];
+
+    constructor(readonly args: number[]) {}
+
+    addColorStop(offset: number, color: string): void {
+        this.stops.push([offset, color]);
+    }
+}
+
 /** Records 2D context calls; implements only what this package uses. */
 export class FakeContext {
     readonly calls: RecordedCall[] = [];
@@ -67,6 +78,11 @@ export class FakeContext {
 
     drawImage(...args: unknown[]): void {
         this.record('drawImage', args);
+    }
+
+    createLinearGradient(...args: number[]): FakeGradient {
+        this.record('createLinearGradient', args);
+        return new FakeGradient(args);
     }
 
     callsNamed(name: string): RecordedCall[] {

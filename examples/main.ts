@@ -10,8 +10,11 @@ import {
 import {
     CanvasFlapRenderer,
     colorFace,
+    type Finish,
+    FLAP_THEMES,
     type FlapStyle,
     textFace,
+    type ThemeName,
 } from '@kinnet-studio/split-flaps/canvas';
 import { PixiFlapView } from '@kinnet-studio/split-flaps/pixi';
 import { FlapSound } from '@kinnet-studio/split-flaps/sound';
@@ -26,7 +29,24 @@ const cities = new FlapSequence([
     'NAGOYA',
     'SENDAI',
     'HAKATA',
+    'DELAYED',
 ]);
+
+/** Background for every other departures row, per theme. */
+const ROW_TINTS: Record<ThemeName, string> = {
+    classic: '#2c2c31',
+    solari: '#343438',
+    airport: '#e6b800',
+    cream: '#e3dccd',
+};
+
+/** A readable red for the DELAYED destination on each theme. */
+const DELAYED_COLORS: Record<ThemeName, string> = {
+    classic: '#ff5a4f',
+    solari: '#ff5a4f',
+    airport: '#b3261e',
+    cream: '#b3261e',
+};
 
 const style: FlapStyle = {
     radius: 4,
@@ -82,21 +102,62 @@ async function departures(): Promise<void> {
         ],
         [
             { time: '11:00', dest: 'NAGOYA', plat: '4' },
-            { time: '11:20', dest: 'SENDAI', plat: '9' },
+            { time: '11:20', dest: 'DELAYED', plat: '9' },
             { time: '11:45', dest: 'TOKYO', plat: '2' },
         ],
     ];
-    const face = { time: charFace, dest: wordFace, plat: charFace };
     const gap = { unit: 3, field: 16, row: 8 };
+    const themeSelect = document.getElementById('theme');
+    const finishSelect = document.getElementById('finish');
+    const selected = () => ({
+        theme: (themeSelect instanceof HTMLSelectElement
+            ? themeSelect.value
+            : 'classic') as ThemeName,
+        finish: (finishSelect instanceof HTMLSelectElement
+            ? finishSelect.value
+            : 'matte') as Finish,
+    });
+
+    // Painters and style for a theme + finish: a red DELAYED destination and
+    // alternating row tints.
+    const look = (theme: ThemeName, finish: Finish) => {
+        const rows = (row: number) =>
+            row % 2 ? { background: ROW_TINTS[theme] } : undefined;
+        const charPainter = textFace({
+            font: '600 26px ui-monospace, Menlo, monospace',
+            theme,
+            rows,
+        });
+        const face = {
+            time: charPainter,
+            dest: textFace({
+                font: '600 22px system-ui, sans-serif',
+                theme,
+                rows,
+                colors: flap =>
+                    flap === 'DELAYED'
+                        ? { color: DELAYED_COLORS[theme] }
+                        : undefined,
+            }),
+            plat: charPainter,
+        };
+        const lookStyle: FlapStyle = {
+            ...style,
+            finish,
+            hingeColor: FLAP_THEMES[theme].hinge,
+        };
+        return { face, style: lookStyle };
+    };
 
     // The canvas renderer advances the board; the Pixi view only mirrors it.
-    const renderer = new CanvasFlapRenderer({
+    const initial = look(selected().theme, selected().finish);
+    let renderer = new CanvasFlapRenderer({
         canvas: canvasById('departures-canvas'),
         target: board,
-        face,
+        face: initial.face,
         cell,
         gap,
-        style,
+        style: initial.style,
     });
     renderer.start();
 
@@ -110,9 +171,42 @@ async function departures(): Promise<void> {
         autoDensity: true,
     });
     document.getElementById('departures-pixi')?.append(app.canvas);
-    const view = new PixiFlapView({ target: board, face, cell, gap, style });
+    let view = new PixiFlapView({
+        target: board,
+        face: initial.face,
+        cell,
+        gap,
+        style: initial.style,
+    });
     app.stage.addChild(view);
     app.ticker.add(() => view.sync());
+
+    // Style and painters are fixed per renderer, so a new look rebuilds both.
+    const restyle = () => {
+        const next = look(selected().theme, selected().finish);
+        renderer.destroy();
+        renderer = new CanvasFlapRenderer({
+            canvas: canvasById('departures-canvas'),
+            target: board,
+            face: next.face,
+            cell,
+            gap,
+            style: next.style,
+        });
+        renderer.start();
+        app.stage.removeChild(view);
+        view.destroy();
+        view = new PixiFlapView({
+            target: board,
+            face: next.face,
+            cell,
+            gap,
+            style: next.style,
+        });
+        app.stage.addChild(view);
+    };
+    themeSelect?.addEventListener('change', restyle);
+    finishSelect?.addEventListener('change', restyle);
 
     let index = 0;
     board.show(messages[index]);

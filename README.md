@@ -134,6 +134,42 @@ board.on('settled', () => console.log('done'));
 
 The hold timer starts once the board has settled on a message.
 
+## Finish and colours
+
+`style.finish` sets the surface: `'gloss'` (default, the original look),
+`'satin'` or `'matte'`. Matte lowers the moving-flap shade and cast shadow and
+bakes a soft top-to-bottom light falloff and a paper-like grain into each
+painted face, so flaps read as printed card. Explicit `shade`, `shadow`,
+`grain` and `light` override the preset.
+
+```ts
+style: {
+    finish: 'matte';
+} // or { finish: 'matte', shade: 0.25 }
+```
+
+`textFace` takes a theme (`classic`, `solari`, `airport`, `cream`, or
+`{ color, background }`) plus per-flap and per-row colours:
+
+```ts
+import { FLAP_THEMES, textFace } from '@kinnet-studio/split-flaps/canvas';
+
+textFace({
+    font: '600 26px ui-monospace, monospace',
+    theme: 'solari',
+    colors: flap => (flap === 'DELAYED' ? { color: '#ff5a4f' } : undefined),
+    rows: row => (row % 2 ? { background: '#343438' } : undefined),
+});
+style: {
+    hingeColor: FLAP_THEMES.solari.hinge;
+} // each theme suggests a hinge colour
+```
+
+Precedence: per-flap, then per-row, then explicit `color` / `background`, then
+the theme. Custom painters receive a fifth argument `{ row, field }`; set
+`perRow: true` on a painter whose output depends on the row so renderers cache
+its faces per row (`textFace` does this when `rows` is given).
+
 ## Covered-flap stack
 
 Show the flaps under the bottom half, like the edges of a book:
