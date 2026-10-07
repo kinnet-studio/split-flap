@@ -1,6 +1,6 @@
 {
     "name": "@kinnet-studio/split-flap",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
     "keywords": [
         "split-flap",
