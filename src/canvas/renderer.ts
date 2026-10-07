@@ -57,6 +57,7 @@ export class CanvasFlapRenderer {
     private dpr = 1;
     private frame: number | null = null;
     private lastTime: number | null = null;
+    private destroyed = false;
 
     constructor(options: CanvasFlapRendererOptions) {
         const ctx = options.canvas.getContext('2d');
@@ -88,6 +89,9 @@ export class CanvasFlapRenderer {
 
     /** Draws every unit whose visible state changed since the last render. */
     render(): void {
+        if (this.destroyed) {
+            return;
+        }
         this.boardLayout.slots.forEach((slot, index) => {
             const state = slot.unit.state;
             const key = slot.sequence.key(state.current);
@@ -111,18 +115,25 @@ export class CanvasFlapRenderer {
 
     /** Runs a frame loop: update the target by the frame delta, then render. */
     start(): void {
-        if (this.frame !== null) {
+        if (this.destroyed || this.frame !== null) {
             return;
         }
         const loop = (time: number): void => {
-            if (this.lastTime !== null) {
-                const dt = Math.min(MAX_FRAME_DT, time - this.lastTime);
-                if (dt > 0) {
-                    this.target.update(dt);
+            // This frame has fired; a throw below must not leave a stale id.
+            this.frame = null;
+            try {
+                if (this.lastTime !== null) {
+                    const dt = Math.min(MAX_FRAME_DT, time - this.lastTime);
+                    if (dt > 0) {
+                        this.target.update(dt);
+                    }
                 }
+                this.lastTime = time;
+                this.render();
+            } catch (error) {
+                this.lastTime = null;
+                throw error;
             }
-            this.lastTime = time;
-            this.render();
             this.frame = this.scheduler.request(loop);
         };
         this.frame = this.scheduler.request(loop);
@@ -152,6 +163,7 @@ export class CanvasFlapRenderer {
 
     destroy(): void {
         this.stop();
+        this.destroyed = true;
         this.caches.clear();
         this.drawn.clear();
     }

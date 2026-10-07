@@ -2,7 +2,11 @@ import type { UnitState } from '../core/unit.js';
 import type { FaceCanvas } from '../render/face-cache.js';
 import type { Ctx2D } from '../render/faces.js';
 import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
-import { type FaceRef, flipGeometry, type Half } from '../render/flip-geometry.js';
+import {
+    type FaceRef,
+    flipGeometry,
+    type Half,
+} from '../render/flip-geometry.js';
 import type { Rect } from '../render/layout.js';
 import { type FlapStyle, resolveStyle } from '../render/style.js';
 

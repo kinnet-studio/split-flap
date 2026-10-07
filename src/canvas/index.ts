@@ -3,7 +3,11 @@ export {
     type CanvasFlapRendererOptions,
     type FrameScheduler,
 } from './renderer.js';
-export { drawUnit, type DrawUnitOptions, type FaceSource } from './draw-unit.js';
+export {
+    drawUnit,
+    type DrawUnitOptions,
+    type FaceSource,
+} from './draw-unit.js';
 export {
     colorFace,
     textFace,

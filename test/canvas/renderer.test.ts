@@ -188,4 +188,25 @@ describe('CanvasFlapRenderer', () => {
                 })
         ).toThrow(/2D canvas context/);
     });
+
+    it('can start again after the frame loop threw', () => {
+        const target = field(1);
+        const { frames, renderer } = setup(target);
+        renderer.start();
+        frames.tick(0);
+        vi.spyOn(target, 'update').mockImplementation(() => {
+            throw new Error('boom');
+        });
+        expect(() => frames.tick(16)).toThrow('boom');
+        expect(frames.callbacks.size).toBe(0);
+        renderer.start();
+        expect(frames.callbacks.size).toBe(1);
+    });
+
+    it('does nothing after destroy', () => {
+        const { frames, renderer } = setup(field(1));
+        renderer.destroy();
+        renderer.start();
+        expect(frames.callbacks.size).toBe(0);
+    });
 });
