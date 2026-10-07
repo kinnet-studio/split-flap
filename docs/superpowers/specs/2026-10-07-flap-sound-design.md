@@ -48,7 +48,7 @@ interface FlapSoundOptions {
     sample?: AudioBuffer | string; // AudioBuffer used as-is; string = URL fetched + decoded on unlock()
     synth?: SynthClickOptions;    // ignored when a sample is loaded
     maxVoices?: number;           // whole number >= 1, default 12
-    variation?: { pitch?: number; volume?: number; timing?: number }; // >= 0, defaults 0.06 / 0.15 / 0.012 s
+    variation?: { pitch?: number; volume?: number; timing?: number }; // >= 0, defaults 0.06 / 0.5 / 0.012 s
     pan?: number;                 // 0..1 stereo width, default 0.6
     context?: AudioContext;       // inject a shared context; otherwise created on unlock()
     random?: () => number;        // default Math.random; inject for tests
@@ -65,16 +65,17 @@ class FlapSound {
 }
 
 interface SynthClickOptions {
-    frequency?: number;   // Hz the click resonates around (noise band-pass and tone), default 1100
-    decay?: number;       // s, strike time constant, default 0.004
-    duration?: number;    // s, buffer length, default 0.14
-    noise?: number;       // 0..1 noise vs tone mix, default 0.91
-    brightness?: number;  // (0, 1] low-pass amount per stage (1 = no filtering), default 0.5
-    attack?: number;      // s, linear fade-in (0 = instant), default 0.003
-    body?: number;        // 0..1 level of the ringing after the strike, default 0.15
-    bodyDecay?: number;   // s, body time constant, default 0.022
+    frequency?: number;   // Hz the click resonates around (noise band-pass and tone), default 4000
+    resonance?: number;   // Q of the noise band-pass (low = wide, high = pitched), default 0.2
+    decay?: number;       // s, strike time constant, default 0.001
+    duration?: number;    // s, buffer length, default 0.16
+    noise?: number;       // 0..1 noise vs tone mix, default 1
+    brightness?: number;  // (0, 1] low-pass amount per stage (1 = no filtering), default 0.85
+    attack?: number;      // s, linear fade-in (0 = instant), default 0.0002
+    body?: number;        // 0..1 level of the rattle after the strike, default 0.45
+    bodyDecay?: number;   // s, body time constant, default 0.04
     bounce?: number;      // 0..1 level of one bounce (0 = none), default 0.3
-    bounceDelay?: number; // s from strike to bounce, default 0.022
+    bounceDelay?: number; // s from strike to bounce, default 0.011
 }
 
 function renderClick(
@@ -99,7 +100,7 @@ function renderClick(
 - Length: `round(duration × sampleRate)` samples (min 1).
 - Sample `i` at `t = i / sampleRate`:
   `raw = noise × h(i) + (1 − noise) × sin(2π · frequency · t)`, where `h` is white noise (uniform
-  in [−1, 1] from `random`) through a band-pass biquad (constant 0 dB peak, Q 0.6) centred on
+  in [−1, 1] from `random`) through a band-pass biquad (constant 0 dB peak, Q = `resonance`) centred on
   `frequency` (clamped to 0.45 × sampleRate so the filter stays stable).
 - Envelope, with `rise(t) = min(1, t / attack)` (1 when `attack` is 0):
   `env = rise(t) × (exp(−t / decay) + body × exp(−t / bodyDecay))`, plus, from
@@ -108,14 +109,21 @@ function renderClick(
 - `raw × env` goes through two one-pole low-pass stages, each
   `y = y_prev + brightness × (x − y_prev)`; finally the buffer is normalized so its peak absolute
   value is 0.9.
-- The defaults were fitted to a recording of a single flap landing (1 ms RMS envelope within
-  about 3.4 dB of it on average over 120 ms; energy per band within a few points): about half the
-  energy between 1 and 2 kHz, a 3 ms rise, a body about 15 dB down for ~20 ms with a bounce at
-  22 ms, and a tail that fades out over ~120 ms. The fade-in means the click starts from silence
-  instead of a step.
+- The defaults were fitted to a recording of a real module flipping about 29 flaps a second: the
+  synth click was placed at each detected landing (time and level) and the rebuilt 1.3 s burst
+  compared with the recording. The fit is within about 2.5 dB of the recording's 1 ms RMS
+  envelope on average, within about 11 points summed over eight frequency bands, and leaves the
+  gaps between landings 11.3 dB below the strikes (recording: 11.7 dB). The real sound is a
+  sub-millisecond, unpitched strike with most of its energy above 4 kHz and a rattle that runs
+  into the next flap; that rattle (`body`) is what makes a fast run sound even rather than
+  spiky. The 0.2 ms fade-in still starts the click from silence, and the noise has almost no
+  energy below 600 Hz, so there is no low pop.
+- A softer, lower clack (fitted earlier to a generated single-flap sound) is documented in the
+  README as a `synth` preset: `frequency` 1100, `resonance` 0.6, `noise` 0.91, `brightness` 0.5,
+  `attack` 0.003, `decay` 0.004, `body` 0.15, `bodyDecay` 0.022, `bounceDelay` 0.022.
 - Default `random` is a fixed-seed PRNG (mulberry32, seed 0x5f1a95), so the default click is
   identical on every load.
-- Validation: `frequency`, `decay`, `duration`, `bodyDecay` > 0; `noise`, `body`, `bounce` in
+- Validation: `frequency`, `resonance`, `decay`, `duration`, `bodyDecay` > 0; `noise`, `body`, `bounce` in
   0..1; `brightness` in (0, 1] (0 would filter the click to silence); `attack`, `bounceDelay`
   >= 0; all finite, else `RangeError`.
 
@@ -131,7 +139,7 @@ function renderClick(
 - Graph per click: `AudioBufferSourceNode → GainNode → StereoPannerNode → master GainNode →
   soft clipper → destination`. The master gain is created on unlock; its value is
   `muted ? 0 : volume`.
-- Soft clipper: a `GainNode` of `1 / CLIP_RANGE` (4) into a `WaveShaperNode` (oversample `4x`)
+- Soft clipper: a `GainNode` of `1 / CLIP_RANGE` (4) into a `WaveShaperNode` (oversample `none`: with `2x`/`4x` the resampling filter rang up to 9% past 1.0 on the crisp click)
   whose curve is unity up to `CLIP_KNEE` (0.7) and a tanh shoulder above it that approaches but
   never passes 1. Normal levels pass untouched; a burst that sums past full scale is rounded off
   instead of hard-clipping at the output. (A `DynamicsCompressorNode` was rejected: its automatic
@@ -182,8 +190,9 @@ single column or `pan: 0` gives 0.
 
 ## Testing
 
-- `renderClick`: length; starts from silence (fade-in); over 40% of the strike's energy between
-  1 and 2 kHz; rings on after the strike and bounces once; peak near the start and decay towards
+- `renderClick`: length; starts from silence (fade-in); over 60% of the strike's energy above
+  4 kHz and under 3% below 600 Hz; no 200 Hz band holds 10% of it (unpitched); rattles on after
+  the strike and bounces once; peak near the start and decay towards
   the end; deterministic for the default seed; `noise: 0` matches a decaying sine (with
   `brightness: 1`, `attack: 0`, `body: 0`, `bounce: 0`); stays finite with `frequency` above
   Nyquist; every sample within ±0.9 after normalization; validation errors.

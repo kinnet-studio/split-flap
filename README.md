@@ -343,14 +343,35 @@ sound.muted = true; // or sound.volume = 0.2; or sound.destroy()
 Sound is opt-in: nothing plays unless you create a `FlapSound` and `unlock()`
 it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
 
-The default click is synthesized (no audio files) and modelled on a recorded
-flap: a soft strike centred between 1 and 2 kHz, the flap and housing ringing
-on for a few tens of milliseconds, and one small bounce. Pass `synth` to tune
-it (`body: 0, bounce: 0` gives a bare tick), or `sample` (an `AudioBuffer` or
-a URL) to use your own recording. Each click gets a small random pitch, volume
-and timing change (`variation`; flaps that land in the same frame are spread
-over up to 12 ms instead of hitting in unison), at most `maxVoices` (default 12) clicks overlap, with a new landing fading out the oldest, and board clicks
-are panned left to right by column (`pan`, 0..1 width). A soft clipper on the output rounds off the peaks of big bursts
+The default click is synthesized (no audio files) and modelled on a recording
+of a real split-flap module: a crisp, unpitched tick of broadband noise (most of
+it above 4 kHz) and a short rattle after it, which run together into an even
+"trrrr" when flaps fall quickly. Real modules flip fast; `flipDuration: 35` or
+so gives the same pace. Pass `synth` to tune the click, or `sample` (an
+`AudioBuffer` or a URL) to use your own recording. For a softer, lower clack:
+
+```ts
+const sound = new FlapSound({
+    target: board,
+    synth: {
+        frequency: 1100,
+        resonance: 0.6,
+        noise: 0.91,
+        brightness: 0.5,
+        attack: 0.003,
+        decay: 0.004,
+        body: 0.15,
+        bodyDecay: 0.022,
+        bounceDelay: 0.022,
+    },
+});
+```
+
+Each click gets a small random pitch, volume and timing change (`variation`;
+flaps that land in the same frame are spread over up to 12 ms instead of hitting
+in unison). At most `maxVoices` (default 12) clicks overlap; a new landing fades
+out the oldest. Board clicks are panned left to right by column (`pan`, 0..1
+width), and a soft clipper on the output rounds off the peaks of big bursts
 instead of letting them distort. If a sample URL fails to load, `unlock()`
 rejects but the synth click keeps playing.
 

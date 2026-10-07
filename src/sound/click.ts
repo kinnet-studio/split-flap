@@ -5,58 +5,61 @@ export { mulberry32 };
 export interface SynthClickOptions {
     /**
      * Hz the click resonates around: the noise is band-passed here and the
-     * tone sits here. Default 1100.
+     * tone sits here. Default 4000.
      */
     frequency?: number;
-    /** Seconds for the strike to fall by about 63%. Default 0.004. */
+    /**
+     * Q of the band-pass on the noise: low is wide and noisy, high rings
+     * like a pitch. Default 0.2.
+     */
+    resonance?: number;
+    /** Seconds for the strike to fall by about 63%. Default 0.001. */
     decay?: number;
-    /** Seconds of audio. Default 0.14. */
+    /** Seconds of audio. Default 0.16. */
     duration?: number;
-    /** 0..1 mix: 0 = pure tone, 1 = pure noise. Default 0.91. */
+    /** 0..1 mix: 0 = pure tone, 1 = pure noise. Default 1. */
     noise?: number;
     /**
      * (0, 1] low-pass amount (two one-pole stages); 1 = no filtering.
-     * Default 0.5.
+     * Default 0.85.
      */
     brightness?: number;
     /**
      * Seconds to fade in, so the click starts without a pop; 0 = instant.
-     * Default 0.003.
+     * Default 0.0002.
      */
     attack?: number;
     /**
-     * 0..1 level of the flap and housing ringing on after the strike.
-     * Default 0.15.
+     * 0..1 level of the flap and housing rattling on after the strike.
+     * Default 0.45.
      */
     body?: number;
-    /** Seconds for the body to fall by about 63%. Default 0.022. */
+    /** Seconds for the body to fall by about 63%. Default 0.04. */
     bodyDecay?: number;
     /**
      * 0..1 level of the flap bouncing once after it lands; 0 = none.
      * Default 0.3.
      */
     bounce?: number;
-    /** Seconds from the strike to the bounce. Default 0.022. */
+    /** Seconds from the strike to the bounce. Default 0.011. */
     bounceDelay?: number;
 }
 
 export const DEFAULT_SYNTH_CLICK: Required<SynthClickOptions> = {
-    frequency: 1100,
-    decay: 0.004,
-    duration: 0.14,
-    noise: 0.91,
-    brightness: 0.5,
-    attack: 0.003,
-    body: 0.15,
-    bodyDecay: 0.022,
+    frequency: 4000,
+    resonance: 0.2,
+    decay: 0.001,
+    duration: 0.16,
+    noise: 1,
+    brightness: 0.85,
+    attack: 0.0002,
+    body: 0.45,
+    bodyDecay: 0.04,
     bounce: 0.3,
-    bounceDelay: 0.022,
+    bounceDelay: 0.011,
 };
 
 const DEFAULT_SEED = 0x5f1a95;
-
-/** Q of the band-pass on the noise: wide, so the click stays unpitched. */
-const RESONANCE_Q = 0.6;
 
 /** Fills in defaults and validates synth options. */
 export function resolveSynthClick(
@@ -65,6 +68,7 @@ export function resolveSynthClick(
     const resolved = { ...DEFAULT_SYNTH_CLICK, ...options };
     for (const name of [
         'frequency',
+        'resonance',
         'decay',
         'duration',
         'bodyDecay',
@@ -101,7 +105,7 @@ export function resolveSynthClick(
 }
 
 /**
- * Synthesizes one split-flap click: a strike, the body ringing on after it
+ * Synthesizes one split-flap click: a strike, the body rattling on after it
  * and one smaller bounce. The sound is noise band-passed around `frequency`
  * mixed with a tone there, through a two-stage low-pass, normalized to a 0.9
  * peak. The default `random` is a fixed-seed PRNG, so the default click
@@ -119,6 +123,7 @@ export function renderClick(
     }
     const {
         frequency,
+        resonance,
         decay,
         duration,
         noise,
@@ -136,7 +141,7 @@ export function renderClick(
     // below Nyquist so the filter stays stable at any sample rate.
     const w0 =
         (2 * Math.PI * Math.min(frequency, sampleRate * 0.45)) / sampleRate;
-    const alpha = Math.sin(w0) / (2 * RESONANCE_Q);
+    const alpha = Math.sin(w0) / (2 * resonance);
     const gain = alpha / (1 + alpha);
     const a1 = (-2 * Math.cos(w0)) / (1 + alpha);
     const a2 = (1 - alpha) / (1 + alpha);

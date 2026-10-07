@@ -63,11 +63,11 @@ describe('FlapSound', () => {
         expect(headroom.gain.value).toBe(1 / CLIP_RANGE);
         expect(headroom.connections).toEqual([clipper]);
         expect(clipper.curve).toEqual(softClipCurve());
-        expect(clipper.oversample).toBe('4x');
+        expect(clipper.oversample).toBe('none');
         expect(clipper.connections).toEqual([context.destination]);
         sound.play();
         const buffer = context.sources[0].buffer as FakeBuffer;
-        expect(buffer.length).toBe(6720);
+        expect(buffer.length).toBe(7680);
         expect(Array.from(buffer.getChannelData(0).slice(0, 5))).toEqual(
             Array.from(renderClick(48000).slice(0, 5))
         );

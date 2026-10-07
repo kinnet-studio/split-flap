@@ -29,7 +29,7 @@ export interface FlapSoundOptions {
     /**
      * Random spread per click: ± pitch and volume, and up to `timing`
      * seconds of delay so flaps landing together don't hit in unison.
-     * Defaults: pitch 0.06, volume 0.15, timing 0.012.
+     * Defaults: pitch 0.06, volume 0.5, timing 0.012.
      */
     variation?: { pitch?: number; volume?: number; timing?: number };
     /** 0..1 stereo width by column. Default 0.6. */
@@ -96,7 +96,7 @@ export class FlapSound {
             'variation.pitch'
         );
         this.volumeVariation = checkNonNegative(
-            options.variation?.volume ?? 0.15,
+            options.variation?.volume ?? 0.5,
             'variation.volume'
         );
         this.timingVariation = checkNonNegative(
@@ -220,7 +220,9 @@ export class FlapSound {
         headroom.gain.value = 1 / CLIP_RANGE;
         const clipper = context.createWaveShaper();
         clipper.curve = softClipCurve();
-        clipper.oversample = '4x';
+        // No oversampling: its resampling filter rings past 1.0 on crisp
+        // clicks.
+        clipper.oversample = 'none';
         master.connect(headroom);
         headroom.connect(clipper);
         clipper.connect(context.destination);
