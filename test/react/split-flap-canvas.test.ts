@@ -170,4 +170,44 @@ describe('SplitFlapCanvas (React)', () => {
         expect(wrapper.style.maxWidth).toBe('720px');
         expect(wrapper.style.display).toBe('block');
     });
+
+    it('recreates the renderer when fit or drive change', () => {
+        vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+        const destroy = vi.spyOn(CanvasFlapRenderer.prototype, 'destroy');
+        const { rerender } = render(createElement(SplitFlapCanvas, props()));
+        rerender(createElement(SplitFlapCanvas, props({ drive: false })));
+        expect(destroy).toHaveBeenCalledTimes(1);
+        rerender(
+            createElement(
+                SplitFlapCanvas,
+                props({ drive: false, fit: 'width' })
+            )
+        );
+        expect(destroy).toHaveBeenCalledTimes(2);
+    });
+
+    it('reads function options once, so inline ones cause no churn', () => {
+        const destroy = vi.spyOn(CanvasFlapRenderer.prototype, 'destroy');
+        const { rerender } = render(
+            createElement(SplitFlapCanvas, props({ flipCurve: p => p * 180 }))
+        );
+        rerender(
+            createElement(SplitFlapCanvas, props({ flipCurve: p => p * 180 }))
+        );
+        expect(destroy).not.toHaveBeenCalled();
+    });
+
+    it('resets a gap that is removed', () => {
+        const { container, rerender } = render(
+            createElement(SplitFlapCanvas, props({ gap: { unit: 10 } }))
+        );
+        expect(canvasOf(container).width).toBe(90);
+        rerender(createElement(SplitFlapCanvas, props()));
+        expect(canvasOf(container).width).toBe(80);
+    });
+
+    it('renders the canvas as a block', () => {
+        const { container } = render(createElement(SplitFlapCanvas, props()));
+        expect(canvasOf(container).style.display).toBe('block');
+    });
 });

@@ -9,7 +9,12 @@ import {
 import { contentKey } from '../render/content-key.js';
 
 export interface UseFlapBoardOptions<S extends Schema> extends BoardOptions<S> {
-    /** Shown with `board.show()` on creation and whenever its content changes. */
+    /**
+     * Shown with `board.show()` on creation and whenever its content changes.
+     * Content is compared as JSON: use plain data (a class whose data lives
+     * in getters serializes as `{}`), and memoize values JSON can't hold
+     * (a `BigInt`), which are compared by identity instead.
+     */
     value?: readonly RowValues<S>[];
 }
 

@@ -26,6 +26,7 @@ export interface SplitFlapCanvasProps {
     gap?: LayoutOptions['gap'];
     /** The flap style (finish, stack, radius, ...). Compared by content. */
     flapStyle?: FlapStyle;
+    /** Read when the renderer is created (with `dpr`, `createCanvas`, `scheduler`). */
     flipCurve?: FlipCurve;
     /** Fit the canvas to the wrapper `<div>`. */
     fit?: FitMode;
@@ -48,47 +49,38 @@ export function SplitFlapCanvas(props: SplitFlapCanvasProps): ReactElement {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const rendererRef = useRef<CanvasFlapRenderer | null>(null);
-    const latest = useRef(props);
-    latest.current = props;
     const applied = useRef<{ layout: unknown; style: unknown; face: unknown }>({
         layout: undefined,
         style: undefined,
         face: undefined,
     });
-    const {
-        target,
-        fit,
-        drive = true,
-        flipCurve,
-        dpr,
-        createCanvas,
-        scheduler,
-    } = props;
+    const { target, fit, drive = true } = props;
 
+    // Only target, fit and drive recreate the renderer. The other props are
+    // read here from this render; later changes go through the setters below.
     useEffect(() => {
         const canvas = canvasRef.current;
         const wrapper = wrapperRef.current;
         if (!canvas || !wrapper) {
             return;
         }
-        const current = latest.current;
         const renderer = new CanvasFlapRenderer({
             canvas,
             target,
-            face: current.face,
-            cell: current.cell,
-            gap: current.gap,
-            style: current.flapStyle,
-            flipCurve,
-            dpr,
-            createCanvas,
-            scheduler,
+            face: props.face,
+            cell: props.cell,
+            gap: props.gap,
+            style: props.flapStyle,
+            flipCurve: props.flipCurve,
+            dpr: props.dpr,
+            createCanvas: props.createCanvas,
+            scheduler: props.scheduler,
             fit: fit ? { element: wrapper, mode: fit } : undefined,
         });
         applied.current = {
-            layout: layoutKey(current),
-            style: contentKey(current.flapStyle),
-            face: current.face,
+            layout: layoutKey(props),
+            style: contentKey(props.flapStyle),
+            face: props.face,
         };
         rendererRef.current = renderer;
         renderer.start({ update: drive });
@@ -96,13 +88,14 @@ export function SplitFlapCanvas(props: SplitFlapCanvasProps): ReactElement {
             renderer.destroy();
             rendererRef.current = null;
         };
-    }, [target, fit, drive, flipCurve, dpr, createCanvas, scheduler]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target, fit, drive]);
 
     const currentLayout = layoutKey(props);
     useEffect(() => {
         const renderer = rendererRef.current;
         if (renderer && applied.current.layout !== currentLayout) {
-            const { cell, gap } = latest.current;
+            const { cell, gap } = props;
             // Explicit zeros so a removed gap resets instead of merging.
             renderer.setLayout({
                 cell,
@@ -110,15 +103,17 @@ export function SplitFlapCanvas(props: SplitFlapCanvasProps): ReactElement {
             });
             applied.current.layout = currentLayout;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentLayout]);
 
     const currentStyle = contentKey(props.flapStyle);
     useEffect(() => {
         const renderer = rendererRef.current;
         if (renderer && applied.current.style !== currentStyle) {
-            renderer.setStyle(latest.current.flapStyle ?? {});
+            renderer.setStyle(props.flapStyle ?? {});
             applied.current.style = currentStyle;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentStyle]);
 
     useEffect(() => {
@@ -136,6 +131,6 @@ export function SplitFlapCanvas(props: SplitFlapCanvasProps): ReactElement {
             className: props.className,
             style: { display: 'block', ...props.style },
         },
-        createElement('canvas', { ref: canvasRef })
+        createElement('canvas', { ref: canvasRef, style: { display: 'block' } })
     );
 }

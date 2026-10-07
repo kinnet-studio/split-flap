@@ -18,6 +18,10 @@ export interface UsePixiFlapViewOptions extends Omit<
 /**
  * Adds a PixiFlapView to `app.stage` while `app` is set, and removes and
  * destroys it on unmount. Returns the view (or `null` before `app` exists).
+ *
+ * `app`, `target` and `drive` recreate the view. `cell`, `gap`, `flapStyle`
+ * and `face` are applied with the view's setters. `resolution`, `flipCurve`
+ * and `createCanvas` are read once, when the view is created.
  */
 export function usePixiFlapView(
     app: Application | null,
@@ -25,76 +29,63 @@ export function usePixiFlapView(
 ): PixiFlapView | null {
     const [view, setView] = useState<PixiFlapView | null>(null);
     const viewRef = useRef<PixiFlapView | null>(null);
-    const latest = useRef(options);
-    latest.current = options;
     const applied = useRef<{ layout: unknown; style: unknown; face: unknown }>({
         layout: undefined,
         style: undefined,
         face: undefined,
     });
-    const {
-        target,
-        drive = true,
-        resolution,
-        flipCurve,
-        createCanvas,
-    } = options;
+    const { target, drive = true } = options;
 
     useEffect(() => {
         if (!app) {
             return;
         }
-        const current = latest.current;
         const created = new PixiFlapView({
-            ...current,
-            style: current.flapStyle,
+            ...options,
+            style: options.flapStyle,
         });
         app.stage.addChild(created);
-        let stop: () => void;
-        if (drive) {
-            created.attach(app.ticker);
-            stop = () => created.detach();
-        } else {
-            const sync = () => created.sync();
-            app.ticker.add(sync);
-            stop = () => app.ticker.remove(sync);
-        }
+        created.attach(app.ticker, { update: drive });
         applied.current = {
-            layout: contentKey([current.cell, current.gap]),
-            style: contentKey(current.flapStyle),
-            face: current.face,
+            layout: contentKey([options.cell, options.gap]),
+            style: contentKey(options.flapStyle),
+            face: options.face,
         };
         viewRef.current = created;
         setView(created);
         return () => {
-            stop();
-            app.stage.removeChild(created);
+            // Safe even when the app (and its stage and ticker) was destroyed
+            // first: destroy() detaches from a destroyed ticker without throwing.
+            created.removeFromParent();
             created.destroy();
             viewRef.current = null;
             setView(null);
         };
-    }, [app, target, drive, resolution, flipCurve, createCanvas]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [app, target, drive]);
 
     const currentLayout = contentKey([options.cell, options.gap]);
     useEffect(() => {
         const current = viewRef.current;
         if (current && applied.current.layout !== currentLayout) {
-            const { cell, gap } = latest.current;
+            const { cell, gap } = options;
             current.setLayout({
                 cell,
                 gap: { unit: 0, field: 0, row: 0, ...gap },
             });
             applied.current.layout = currentLayout;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentLayout]);
 
     const currentStyle = contentKey(options.flapStyle);
     useEffect(() => {
         const current = viewRef.current;
         if (current && applied.current.style !== currentStyle) {
-            current.setStyle(latest.current.flapStyle ?? {});
+            current.setStyle(options.flapStyle ?? {});
             applied.current.style = currentStyle;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentStyle]);
 
     useEffect(() => {
