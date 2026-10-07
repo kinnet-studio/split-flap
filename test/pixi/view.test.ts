@@ -158,6 +158,23 @@ describe('PixiFlapView', () => {
         expect(sourceOf('-').destroyed).toBe(false);
     });
 
+    it('destroys the textures it painted itself when destroyed', () => {
+        const view = new PixiFlapView({
+            target: new FlapUnit({ sequence: seq }),
+            face: textFace({
+                font: '20px sans-serif',
+                color: '#fff',
+                background: '#000',
+            }),
+            cell: { w: 40, h: 60 },
+            createCanvas: fakeCanvasFactory,
+        });
+        const source = (view.children[0] as UnitSprite).top.texture.source;
+        expect(source.destroyed).toBe(false);
+        view.destroy();
+        expect(source.destroyed).toBe(true);
+    });
+
     it('throws when a board field has no face', () => {
         const board = new FlapBoard({
             rows: 1,
