@@ -4,6 +4,10 @@ A split-flap display engine for the web. The core handles the drums, the timing,
 idle spinning and message playlists, and works with any renderer. Canvas 2D and
 Pixi v8 renderers are included.
 
+Up to 0.1.1 the package was published as `@kinnet-studio/split-flaps`, which is
+now deprecated. To upgrade, replace that name in your imports with
+`@kinnet-studio/split-flap`.
+
 ## Install
 
 ```bash
