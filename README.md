@@ -134,6 +134,23 @@ board.on('settled', () => console.log('done'));
 
 The hold timer starts once the board has settled on a message.
 
+## Covered-flap stack
+
+Show the flaps under the bottom half, like the edges of a book:
+
+```ts
+new CanvasFlapRenderer({ /* … */ style: { stack: { count: 3, step: 2 } } });
+new PixiFlapView({
+    /* … */ style: { stack: { count: 3, step: 2, shade: 0.15 } },
+});
+```
+
+`count` covered flaps each peek out `step` px below the one in front, darkened
+`shade` more per layer (default 0.15). The stack fits inside the cell: the face
+shrinks by `count × step`, and layout and canvas size stay the same. The edges
+are the real earlier flaps on the drum, so colour faces show the previous
+colours.
+
 ## Speed
 
 `flipDuration` (per unit, or per field via `unit: { flipDuration }`) sets how

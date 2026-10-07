@@ -372,8 +372,17 @@ interface FlapStyle {
   hingeColor?: string;
   shade?: number;         // 0..1 max darkening of the moving flap
   shadow?: number;        // 0..1 max cast-shadow opacity
+  stack?: { count: number; step: number; shade?: number } | null;  // covered-flap stack, off by default
 }
 ```
+
+**Covered-flap stack.** With `stack`, the face shrinks to `cell.h - count × step` (top-aligned) and
+the strip below shows the flaps covered by the bottom half, like the edges of a book. Layer `k`
+(1 = nearest) is the flap `k` places before the one the bottom half shows (wrapping round the drum;
+during a backward flip that is `next`), drawn as its bottom half shifted down `k × step` and
+darkened by `min(1, k × shade)` (default `shade` 0.15), deepest first. Layout and canvas size are
+unchanged. `drawUnit` draws the stack only when given the unit's `sequence`; both renderers pass it.
+`stackDepth(style)` and `stackFlaps(sequence, base, count)` are exported for custom renderers.
 
 ### Layout (shared)
 

@@ -122,6 +122,18 @@ describe('CanvasFlapRenderer', () => {
         expect(createCanvas).toHaveBeenCalledWith(80, 120);
     });
 
+    it('paints faces at the face height and draws the stack when it is on', () => {
+        const createCanvas = vi.fn(fakeCanvasFactory);
+        const { ctx } = setup(field(1), {
+            createCanvas,
+            style: { stack: { count: 3, step: 2 } },
+        });
+        // 60 px cell - 6 px stack = 54 px face, at dpr 2
+        expect(createCanvas).toHaveBeenCalledWith(80, 108);
+        // 3 stack edges + 2 halves
+        expect(ctx.callsNamed('drawImage')).toHaveLength(5);
+    });
+
     it('uses a painter per field for boards', () => {
         const a = vi.fn(painter);
         const b = vi.fn(painter);

@@ -1,3 +1,4 @@
+import type { FlapSequence } from '../core/sequence.js';
 import type { UnitState } from '../core/unit.js';
 import type { FaceCanvas } from '../render/face-cache.js';
 import type { Ctx2D } from '../render/faces.js';
@@ -8,6 +9,7 @@ import {
     type Half,
 } from '../render/flip-geometry.js';
 import type { Rect } from '../render/layout.js';
+import { stackDepth, stackFlaps } from '../render/stack.js';
 import { type FlapStyle, resolveStyle } from '../render/style.js';
 
 /** Anything that returns a painted face for a flap, e.g. a FaceCache. */
@@ -19,11 +21,16 @@ export interface DrawUnitOptions<T> {
     faces: FaceSource<T>;
     style?: FlapStyle;
     flipCurve?: FlipCurve;
+    /** The unit's drum. Needed to draw `style.stack`; without it no stack is drawn. */
+    sequence?: FlapSequence<T>;
 }
 
 /**
  * Draws one unit into `rect` (CSS px). Does not clear first. Shadows use
  * `source-atop` so they only darken pixels already drawn.
+ *
+ * With `style.stack` and a `sequence`, the face shrinks by the stack depth and
+ * the flaps covered by the bottom half are drawn underneath it, deepest first.
  */
 export function drawUnit<T>(
     ctx: Ctx2D,
@@ -32,18 +39,38 @@ export function drawUnit<T>(
     options: DrawUnitOptions<T>
 ): void {
     const style = resolveStyle(options.style);
-    const half = rect.h / 2;
+    const depth = options.sequence ? stackDepth(style) : 0;
+    const half = (rect.h - depth) / 2;
     const hingeY = rect.y + half;
+    const curve = options.flipCurve ?? defaultFlipCurve();
+    const geometry =
+        state.next === null
+            ? null
+            : flipGeometry(curve(state.progress), state.direction);
+    if (style.stack && options.sequence && depth > 0) {
+        const base =
+            geometry?.staticBottom === 'next' && state.next !== null
+                ? state.next
+                : state.current;
+        const covered = stackFlaps(options.sequence, base, style.stack.count);
+        for (let layer = covered.length; layer >= 1; layer--) {
+            const y = hingeY + layer * style.stack.step;
+            const face = options.faces.get(covered[layer - 1]);
+            drawHalf(ctx, face, 'bottom', rect.x, y, rect.w, half);
+            const alpha = Math.min(1, layer * style.stack.shade);
+            if (alpha > 0.001) {
+                darken(ctx, alpha, rect.x, y, rect.w, half);
+            }
+        }
+    }
     const current = options.faces.get(state.current);
-    if (state.next === null) {
+    if (state.next === null || geometry === null) {
         drawHalf(ctx, current, 'top', rect.x, rect.y, rect.w, half);
         drawHalf(ctx, current, 'bottom', rect.x, hingeY, rect.w, half);
     } else {
         const next = options.faces.get(state.next);
         const pick = (ref: FaceRef): FaceCanvas =>
             ref === 'current' ? current : next;
-        const curve = options.flipCurve ?? defaultFlipCurve();
-        const geometry = flipGeometry(curve(state.progress), state.direction);
         drawHalf(
             ctx,
             pick(geometry.staticTop),

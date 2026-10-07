@@ -2,6 +2,7 @@ import { type CanvasFactory, FaceCache } from '../render/face-cache.js';
 import type { FacePainter } from '../render/faces.js';
 import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
 import { MAX_FRAME_DT } from '../render/frame.js';
+import { stackDepth } from '../render/stack.js';
 import {
     type BoardLayout,
     layout,
@@ -108,6 +109,7 @@ export class CanvasFlapRenderer {
                 faces: this.facesFor(slot),
                 style: this.style,
                 flipCurve: this.curve,
+                sequence: slot.sequence,
             });
             this.drawn.set(index, signature);
         });
@@ -177,7 +179,8 @@ export class CanvasFlapRenderer {
             key: flap => slot.sequence.key(flap),
             painter: this.painterFor(slot.field),
             width: slot.rect.w,
-            height: slot.rect.h,
+            // Faces fill the cell minus the covered-flap stack.
+            height: slot.rect.h - stackDepth(this.style),
             dpr: this.dpr,
             radius: this.style.radius,
             createCanvas: this.options.createCanvas,

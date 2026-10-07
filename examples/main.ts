@@ -27,7 +27,11 @@ const cities = new FlapSequence([
     'HAKATA',
 ]);
 
-const style: FlapStyle = { radius: 4, hingeGap: 1 };
+const style: FlapStyle = {
+    radius: 4,
+    hingeGap: 1,
+    stack: { count: 3, step: 2 },
+};
 const cell = { w: 28, h: 44 };
 const charFace = textFace({
     font: '600 26px ui-monospace, Menlo, monospace',

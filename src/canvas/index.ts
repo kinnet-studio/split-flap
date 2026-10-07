@@ -44,9 +44,13 @@ export {
     type UnitSlot,
 } from '../render/layout.js';
 export {
+    DEFAULT_STACK_SHADE,
     DEFAULT_STYLE,
     resolveStyle,
+    type FlapStack,
     type FlapStyle,
+    type ResolvedFlapStack,
     type ResolvedFlapStyle,
 } from '../render/style.js';
+export { stackDepth, stackFlaps } from '../render/stack.js';
 export { MAX_FRAME_DT } from '../render/frame.js';

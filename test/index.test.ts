@@ -37,6 +37,8 @@ describe('entry points', () => {
                 'flipGeometry',
                 'layout',
                 'textFace',
+                'stackDepth',
+                'stackFlaps',
             ])
         );
     });
@@ -52,6 +54,8 @@ describe('entry points', () => {
                 'createFlipCurve',
                 'layout',
                 'textFace',
+                'stackDepth',
+                'stackFlaps',
                 'textureFace',
             ])
         );

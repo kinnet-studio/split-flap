@@ -3,6 +3,7 @@ import { Container, type DestroyOptions, type Ticker } from 'pixi.js';
 import type { CanvasFactory } from '../render/face-cache.js';
 import { defaultFlipCurve, type FlipCurve } from '../render/flip-curve.js';
 import { MAX_FRAME_DT } from '../render/frame.js';
+import { stackDepth } from '../render/stack.js';
 import {
     type BoardLayout,
     layout,
@@ -88,7 +89,8 @@ export class PixiFlapView extends Container {
             this.sprites[index].apply(
                 slot.unit.state,
                 this.texturesFor(slot),
-                this.curve
+                this.curve,
+                slot.sequence
             )
         );
     }
@@ -117,7 +119,8 @@ export class PixiFlapView extends Container {
             this.faceFor(slot.field),
             {
                 width: slot.rect.w,
-                height: slot.rect.h,
+                // Faces fill the cell minus the covered-flap stack.
+                height: slot.rect.h - stackDepth(this.flapStyle),
                 resolution:
                     this.viewOptions.resolution ??
                     globalThis.devicePixelRatio ??
