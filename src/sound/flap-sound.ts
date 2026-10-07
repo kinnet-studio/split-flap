@@ -10,6 +10,9 @@ import {
     type SoundTarget,
 } from './pan.js';
 
+/** A recording: an AudioBuffer used as-is, or a URL fetched on unlock(). */
+export type FlapSample = AudioBuffer | string;
+
 export interface FlapSoundOptions {
     /** Board, field or unit whose `flipend` events trigger clicks. */
     target: SoundTarget;
@@ -17,9 +20,13 @@ export interface FlapSoundOptions {
     volume?: number;
     /** Start muted; toggle later with the `muted` property. Default false. */
     muted?: boolean;
-    /** AudioBuffer used as-is, or a URL fetched and decoded on unlock(). */
-    sample?: AudioBuffer | string;
-    /** Synth click tuning; ignored once a sample has loaded. */
+    /**
+     * Recordings to play instead of the synth; with several, each landing
+     * plays one at random. Landings are silent until they load, and the
+     * synth is never used for them.
+     */
+    sample?: FlapSample | readonly FlapSample[];
+    /** Synth click tuning; unused when `sample` is given. */
     synth?: SynthClickOptions;
     /**
      * Clicks allowed to overlap; a landing past this fades out the oldest
@@ -62,7 +69,7 @@ interface FlipSource {
  */
 export class FlapSound {
     private readonly synth: Required<SynthClickOptions>;
-    private readonly sample: AudioBuffer | string | undefined;
+    private readonly samples: readonly FlapSample[];
     private readonly maxVoices: number;
     private readonly pitchVariation: number;
     private readonly volumeVariation: number;
@@ -74,7 +81,7 @@ export class FlapSound {
     private context: AudioContext | null;
     private master: GainNode | null = null;
     private clipper: WaveShaperNode | null = null;
-    /** Clicks to choose from: the synth takes, or the one loaded sample. */
+    /** Clicks to choose from: the loaded samples, or the synth takes. */
     private buffers: AudioBuffer[] = [];
     private unlocking: Promise<void> | null = null;
     private ready = false;
@@ -108,7 +115,12 @@ export class FlapSound {
             'variation.timing'
         );
         this.synth = resolveSynthClick(options.synth);
-        this.sample = options.sample;
+        this.samples =
+            options.sample === undefined
+                ? []
+                : Array.isArray(options.sample)
+                  ? options.sample
+                  : [options.sample as FlapSample];
         this.random = options.random ?? Math.random;
         this.context = options.context ?? null;
         this.ownsContext = options.context === undefined;
@@ -143,9 +155,10 @@ export class FlapSound {
     }
 
     /**
-     * Creates or resumes the AudioContext and builds the click. Call it from
-     * a user gesture. Repeated calls share the first call's promise. If a
-     * sample URL fails to load, this rejects but the synth click is used.
+     * Creates or resumes the AudioContext and builds the click, or loads the
+     * samples. Call it from a user gesture. Repeated calls share the first
+     * call's promise. If a sample fails to load this rejects, and the
+     * samples that did load are played (none: silent).
      */
     unlock(): Promise<void> {
         this.unlocking ??= this.start();
@@ -240,10 +253,20 @@ export class FlapSound {
         this.master = master;
         this.clipper = clipper;
         this.applyMasterGain();
-        this.buffers = this.synthBuffers(context);
         this.ready = true;
-        if (this.sample !== undefined) {
-            this.buffers = [await loadSample(context, this.sample)];
+        if (this.samples.length === 0) {
+            this.buffers = this.synthBuffers(context);
+            return;
+        }
+        const loads = await Promise.allSettled(
+            this.samples.map(sample => loadSample(context, sample))
+        );
+        this.buffers = loads.flatMap(load =>
+            load.status === 'fulfilled' ? [load.value] : []
+        );
+        const failed = loads.find(load => load.status === 'rejected');
+        if (failed) {
+            throw failed.reason;
         }
     }
 
@@ -311,7 +334,7 @@ export function softClipCurve(points = 2049): Float32Array<ArrayBuffer> {
 
 async function loadSample(
     context: AudioContext,
-    sample: AudioBuffer | string
+    sample: FlapSample
 ): Promise<AudioBuffer> {
     if (typeof sample !== 'string') {
         return sample;

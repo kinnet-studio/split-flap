@@ -22,7 +22,9 @@ speakers, and a soft clipper on the output.
 
 ## Non-goals
 
-- A separate "flip start" sound, multiple samples per board, per-field sounds, reverb/effects.
+- A separate "flip start" sound, per-field sounds, reverb/effects. (Several samples per board,
+  one picked per landing, were a non-goal at first; added once real recordings proved more
+  authentic than the synth and a single repeated recording proved less.)
 - Sound inside the renderers (rejected approach B: ties sound to our two renderers).
 - Automatic unlocking on page interaction (documented one-liner instead).
 
@@ -45,8 +47,8 @@ interface FlapSoundOptions {
     target: FlapBoard<any> | FlapField<any, any> | FlapUnit<any>;
     volume?: number;              // 0..1 master volume, default 0.5
     muted?: boolean;              // start muted, default false
-    sample?: AudioBuffer | string; // AudioBuffer used as-is; string = URL fetched + decoded on unlock()
-    synth?: SynthClickOptions;    // ignored when a sample is loaded
+    sample?: FlapSample | readonly FlapSample[]; // FlapSample = AudioBuffer (as-is) | string (URL fetched + decoded on unlock())
+    synth?: SynthClickOptions;    // unused when `sample` is given
     maxVoices?: number;           // whole number >= 1, default 12
     variation?: { pitch?: number; volume?: number; timing?: number }; // >= 0, defaults 0.06 / 0.5 / 0.012 s
     pan?: number;                 // 0..1 stereo width, default 0.6
@@ -143,10 +145,13 @@ function renderClick(
 
 ### Samples
 
-- `sample` as `AudioBuffer`: used as the click buffer.
-- `sample` as URL: `unlock()` runs `fetch(url)` → `arrayBuffer()` → `context.decodeAudioData()`.
-  On failure `unlock()` rejects with that error, but the sound remains unlocked and uses the synth
-  click, so a missing file never silences the board.
+- `sample` is one recording or a list; each is an `AudioBuffer` (used as-is) or a URL (`unlock()`
+  runs `fetch(url)` → `arrayBuffer()` → `context.decodeAudioData()`). All load in parallel.
+- With `sample`, the synth is never rendered or played: the graph is built and `unlocked` is true
+  at once, but landings are silent until the recordings load. If any fails, `unlock()` rejects
+  with the first error and the ones that loaded are played; if none loads the board stays silent.
+  (Earlier versions fell back to the synth; dropped so a board set up with real recordings never
+  plays a synthetic click.)
 
 ### Mixing
 
@@ -161,8 +166,8 @@ function renderClick(
 - Per-click variation (from `random`): `playbackRate = 1 + (2r₁ − 1) × variation.pitch`;
   `gain = 1 − r₂ × variation.volume`; start delay `r₃ × variation.timing`.
 - Takes: on unlock the synth click is rendered as 8 takes (`renderClickVariants`), and each
-  landing plays take `floor(r₄ × 8)`, so a fast run doesn't repeat one sound. A loaded sample is
-  a single take and draws no `r₄`.
+  landing plays take `floor(r₄ × 8)`, so a fast run doesn't repeat one sound. With samples, the
+  loaded recordings are the takes; a single one draws no `r₄`.
 - Voice cap: playing voices are kept oldest first and removed on the source's `ended` event. A
   landing while `maxVoices` are playing steals the oldest: its gain ramps to 0
   (`setTargetAtTime(0, now, 0.004)`) and its source stops 20 ms later, so every landing is heard
@@ -185,7 +190,7 @@ single column or `pan: 0` gives 0.
 
 - `unlock()`: if no `context` was injected, creates `new AudioContext()` (rejects with
   `Error('FlapSound: Web Audio is not available')` when `AudioContext` is undefined); awaits
-  `context.resume()`; builds the master gain; loads the sample (URL) or renders the synth click into
+  `context.resume()`; builds the master gain; loads the samples (URLs) or renders the synth click takes into
   `context.createBuffer(1, length, context.sampleRate)`. Repeated calls return the same promise.
 - Browsers require a user gesture; README documents
   `addEventListener('pointerdown', () => sound.unlock(), { once: true })`.
@@ -202,7 +207,7 @@ single column or `pan: 0` gives 0.
 | `volume`/`pan` outside 0..1, `maxVoices` not a whole number >= 1, negative/non-finite `variation` | `RangeError` at construction (and from the `volume` setter) |
 | Invalid synth options | `RangeError` from `renderClick` (surfaced by the constructor's validation) |
 | No Web Audio | Construction works; `unlock()` rejects |
-| Sample URL fetch/decode fails | `unlock()` rejects; synth click used |
+| Sample URL fetch/decode fails | `unlock()` rejects; the samples that loaded play; none loaded: silent |
 | `play()` before unlock or after destroy | No-op |
 
 ## Testing
@@ -220,7 +225,8 @@ single column or `pan: 0` gives 0.
   manually): silent before unlock; plays on `flipend` with expected pan, rate and gain (seeded
   `random`), including the timing spread; master → headroom → soft clipper → destination; clipper
   curve unity below the knee, monotonic and within ±1; oldest voice faded and stopped when all are busy; a different synth take per landing; voice release on `ended`; muted creates no nodes; `volume` setter
-  updates master gain; URL sample via stubbed `fetch`; failed load falls back to synth and rejects;
+  updates master gain; URL sample via stubbed `fetch`; several samples picked per landing; silent while samples load; a failed load rejects, plays the
+  samples that loaded and never the synth;
   `destroy` unsubscribes; closes only a context it created; missing Web Audio rejects.
 - Entry point export test; build dist check covers `/sound`.
 - Examples app: a "Sound" toggle (unlock then mute/unmute). Final listening check is manual.

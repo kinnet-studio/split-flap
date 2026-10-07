@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FlapSequence } from '../../src/core/sequence';
 import { FlapUnit } from '../../src/core/unit';
-import { FlapSound } from '../../src/sound/flap-sound';
+import { type FlapSample, FlapSound } from '../../src/sound/flap-sound';
 import {
     asAudioContext,
     FakeAudioContext,
@@ -11,14 +11,27 @@ import {
 
 const seq = FlapSequence.chars('-AB');
 
-function setup(sample: AudioBuffer | string) {
+function setup(
+    sample: FlapSample | readonly FlapSample[],
+    random: () => number = () => 0.5
+) {
     const context = new FakeAudioContext();
     const sound = new FlapSound({
         target: new FlapUnit({ sequence: seq }),
         context: asAudioContext(context),
         sample,
+        random,
     });
     return { context, sound };
+}
+
+const fakeBuffer = (length: number) =>
+    new FakeBuffer(1, length, 48000) as unknown as AudioBuffer;
+
+/** A random source that returns the given values in order, then repeats. */
+function sequenceOf(...values: number[]): () => number {
+    let index = 0;
+    return () => values[index++ % values.length];
 }
 
 function stubFetch(response: { ok: boolean; status: number }) {
@@ -54,21 +67,72 @@ describe('FlapSound samples', () => {
         expect(context.sources[0].buffer).toBe(context.decodeResult);
     });
 
-    it('falls back to the synth click when the URL fails to load', async () => {
+    it('stays silent instead of using the synth when the URL fails', async () => {
         stubFetch({ ok: false, status: 404 });
         const { context, sound } = setup('/missing.wav');
         await expect(sound.unlock()).rejects.toThrow('HTTP 404');
         expect(sound.unlocked).toBe(true);
         sound.play();
-        expect((context.sources[0].buffer as FakeBuffer).length).toBe(7680);
+        expect(context.sources).toHaveLength(0);
     });
 
-    it('falls back to the synth click when decoding fails', async () => {
+    it('stays silent instead of using the synth when decoding fails', async () => {
         stubFetch({ ok: true, status: 200 });
         const { context, sound } = setup('/broken.wav');
         context.decodeError = new Error('bad audio');
         await expect(sound.unlock()).rejects.toThrow('bad audio');
         sound.play();
-        expect((context.sources[0].buffer as FakeBuffer).length).toBe(7680);
+        expect(context.sources).toHaveLength(0);
+    });
+
+    it('plays one of several samples at random per landing', async () => {
+        const samples = [fakeBuffer(100), fakeBuffer(200), fakeBuffer(300)];
+        const { context, sound } = setup(
+            samples,
+            sequenceOf(0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0.99)
+        );
+        await sound.unlock();
+        sound.play();
+        sound.play();
+        expect(context.sources.map(source => source.buffer)).toEqual([
+            samples[0],
+            samples[2],
+        ]);
+    });
+
+    it('plays the samples that loaded when others fail', async () => {
+        stubFetch({ ok: false, status: 404 });
+        const good = fakeBuffer(100);
+        const { context, sound } = setup([good, '/missing.wav']);
+        await expect(sound.unlock()).rejects.toThrow('HTTP 404');
+        sound.play();
+        expect(context.sources[0].buffer).toBe(good);
+    });
+
+    it('is silent while samples load, never playing the synth', async () => {
+        let respond: () => void = () => {};
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                () =>
+                    new Promise(resolve => {
+                        respond = () =>
+                            resolve({
+                                ok: true,
+                                status: 200,
+                                arrayBuffer: async () => new ArrayBuffer(8),
+                            });
+                    })
+            )
+        );
+        const { context, sound } = setup('/clack.wav');
+        const unlocking = sound.unlock();
+        await vi.waitFor(() => expect(sound.unlocked).toBe(true));
+        sound.play();
+        expect(context.sources).toHaveLength(0);
+        respond();
+        await unlocking;
+        sound.play();
+        expect(context.sources[0].buffer).toBe(context.decodeResult);
     });
 });

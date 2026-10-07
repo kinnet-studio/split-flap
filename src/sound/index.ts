@@ -1,4 +1,8 @@
-export { FlapSound, type FlapSoundOptions } from './flap-sound.js';
+export {
+    type FlapSample,
+    FlapSound,
+    type FlapSoundOptions,
+} from './flap-sound.js';
 export {
     DEFAULT_SYNTH_CLICK,
     renderClick,
