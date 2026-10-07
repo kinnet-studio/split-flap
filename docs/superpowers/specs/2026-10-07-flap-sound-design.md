@@ -43,6 +43,7 @@ by column, so a ripple travels across the speakers.
 interface FlapSoundOptions {
     target: FlapBoard<any> | FlapField<any, any> | FlapUnit<any>;
     volume?: number;              // 0..1 master volume, default 0.5
+    muted?: boolean;              // start muted, default false
     sample?: AudioBuffer | string; // AudioBuffer used as-is; string = URL fetched + decoded on unlock()
     synth?: SynthClickOptions;    // ignored when a sample is loaded
     maxVoices?: number;           // whole number >= 1, default 12

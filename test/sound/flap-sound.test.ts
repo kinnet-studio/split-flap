@@ -103,6 +103,22 @@ describe('FlapSound', () => {
         expect(context.sources[0].disconnected).toBe(true);
     });
 
+    it('can start muted from the constructor', async () => {
+        const { unit, context, sound } = setup({ muted: true });
+        expect(sound.muted).toBe(true);
+        await sound.unlock();
+        expect(context.gains[0].gain.value).toBe(0);
+        unit.setTarget('A');
+        unit.update(10);
+        expect(context.sources).toHaveLength(0);
+        sound.muted = false;
+        expect(context.gains[0].gain.value).toBe(0.5);
+    });
+
+    it('starts unmuted by default', () => {
+        expect(setup().sound.muted).toBe(false);
+    });
+
     it('creates nothing while muted and restores the volume after', async () => {
         const { unit, context, sound } = setup();
         await sound.unlock();

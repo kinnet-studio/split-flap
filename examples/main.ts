@@ -126,8 +126,7 @@ async function departures(): Promise<void> {
 
     // Sound starts muted; the first click unlocks audio (browsers require a
     // user gesture) and toggles it on.
-    const sound = new FlapSound({ target: board, volume: 0.4 });
-    sound.muted = true;
+    const sound = new FlapSound({ target: board, volume: 0.4, muted: true });
     const soundButton = document.getElementById('sound');
     onClick('sound', () => {
         sound.unlock().catch(error => console.error(error));

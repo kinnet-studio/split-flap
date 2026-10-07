@@ -163,8 +163,11 @@ const sound = new FlapSound({ target: board, volume: 0.5 });
 // Browsers only allow audio after a user gesture:
 addEventListener('pointerdown', () => sound.unlock(), { once: true });
 
-sound.muted = true; // or sound.volume = 0.2
+sound.muted = true; // or sound.volume = 0.2; or sound.destroy()
 ```
+
+Sound is opt-in: nothing plays unless you create a `FlapSound` and `unlock()`
+it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
 
 The default click is synthesized (no audio files); pass `synth` to tune it, or
 `sample` (an `AudioBuffer` or a URL) to use your own recording. Each click gets

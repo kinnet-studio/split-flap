@@ -15,6 +15,8 @@ export interface FlapSoundOptions {
     target: SoundTarget;
     /** 0..1 master volume. Default 0.5. */
     volume?: number;
+    /** Start muted; toggle later with the `muted` property. Default false. */
+    muted?: boolean;
     /** AudioBuffer used as-is, or a URL fetched and decoded on unlock(). */
     sample?: AudioBuffer | string;
     /** Synth click tuning; ignored once a sample has loaded. */
@@ -58,10 +60,11 @@ export class FlapSound {
     private destroyed = false;
     private active = 0;
     private level: number;
-    private silenced = false;
+    private silenced: boolean;
 
     constructor(options: FlapSoundOptions) {
         this.level = checkUnitRange(options.volume ?? 0.5, 'volume');
+        this.silenced = options.muted ?? false;
         const panWidth = checkUnitRange(options.pan ?? 0.6, 'pan');
         const maxVoices = options.maxVoices ?? 12;
         if (!Number.isInteger(maxVoices) || maxVoices < 1) {
