@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>split-flaps examples</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 24px;
+                background: #1b1b1f;
+                color: #eeeeee;
+                font-family: system-ui, sans-serif;
+            }
+            section {
+                margin-bottom: 40px;
+            }
+            h2 {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #a8a8b0;
+            }
+            .controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 8px 0 16px;
+            }
+            button,
+            input {
+                background: #2c2c33;
+                color: #eeeeee;
+                border: 1px solid #44444c;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font: inherit;
+            }
+            button {
+                cursor: pointer;
+            }
+            .boards {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 24px;
+                align-items: flex-start;
+            }
+            canvas {
+                display: block;
+                max-width: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <section>
+            <h2>Departures: Canvas 2D (left), Pixi (right), one board</h2>
+            <div class="controls">
+                <button id="next">Next message</button>
+                <button id="play">Play playlist</button>
+                <button id="spin">Spin</button>
+                <button id="stop">Stop</button>
+            </div>
+            <div class="boards">
+                <canvas id="departures-canvas"></canvas>
+                <div id="departures-pixi"></div>
+            </div>
+        </section>
+        <section>
+            <h2>Plain grid</h2>
+            <div class="controls">
+                <input id="grid-input" value="HELLO WORLD" maxlength="22" />
+                <button id="grid-show">Show</button>
+            </div>
+            <canvas id="grid-canvas"></canvas>
+        </section>
+        <section>
+            <h2>Colour flaps (shortest path)</h2>
+            <canvas id="colors-canvas"></canvas>
+        </section>
+        <script type="module" src="./main.ts"></script>
+    </body>
+</html>

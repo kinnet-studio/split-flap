@@ -9,7 +9,13 @@
         "skipLibCheck": true,
         "isolatedModules": true,
         "verbatimModuleSyntax": true,
-        "types": []
+        "types": [],
+        "paths": {
+            "@kinnet-studio/split-flaps": ["./src/core/index.ts"],
+            "@kinnet-studio/split-flaps/canvas": ["./src/canvas/index.ts"],
+            "@kinnet-studio/split-flaps/pixi": ["./src/pixi/index.ts"]
+        }
     },
-    "include": ["src", "test"]
+    "include": ["src", "test", "examples"],
+    "exclude": ["examples/vite.config.ts", "examples/dist"]
 }
