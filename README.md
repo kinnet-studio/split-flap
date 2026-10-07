@@ -1,4 +1,4 @@
-# @kinnet-studio/split-flaps
+# @kinnet-studio/split-flap
 
 A split-flap display engine for the web. The core handles the drums, the timing,
 idle spinning and message playlists, and works with any renderer. Canvas 2D and
@@ -7,7 +7,7 @@ Pixi v8 renderers are included.
 ## Install
 
 ```bash
-bun add @kinnet-studio/split-flaps
+bun add @kinnet-studio/split-flap
 # only for the Pixi renderer:
 bun add pixi.js@^8
 ```
@@ -36,11 +36,8 @@ import {
     FlapBoard,
     FlapSequence,
     textField,
-} from '@kinnet-studio/split-flaps';
-import {
-    CanvasFlapRenderer,
-    textFace,
-} from '@kinnet-studio/split-flaps/canvas';
+} from '@kinnet-studio/split-flap';
+import { CanvasFlapRenderer, textFace } from '@kinnet-studio/split-flap/canvas';
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
 const cities = new FlapSequence(['', 'TOKYO', 'OSAKA', 'KYOTO']);
@@ -74,7 +71,7 @@ board.show([{ time: '09:15', dest: 'TOKYO', plat: '3' }]);
 ## Pixi v8
 
 ```ts
-import { PixiFlapView } from '@kinnet-studio/split-flaps/pixi';
+import { PixiFlapView } from '@kinnet-studio/split-flap/pixi';
 
 const view = new PixiFlapView({ target: board, face, cell, gap });
 app.stage.addChild(view);
@@ -154,7 +151,7 @@ style: {
 `{ color, background }`) plus per-flap and per-row colours:
 
 ```ts
-import { FLAP_THEMES, textFace } from '@kinnet-studio/split-flaps/canvas';
+import { FLAP_THEMES, textFace } from '@kinnet-studio/split-flap/canvas';
 
 textFace({
     font: '600 26px ui-monospace, monospace',
@@ -201,7 +198,7 @@ colours.
 ## React
 
 ```ts
-import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/react';
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flap/react';
 
 function Departures({ rows }: { rows: RowValues<typeof schema>[] }) {
     // One stable board; `value` is shown whenever its content changes.
@@ -258,7 +255,7 @@ The view is safe to clean up after the app is destroyed: unmounting after
 ## Vue
 
 ```ts
-import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/vue';
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flap/vue';
 
 const board = useFlapBoard({ rows: 4, schema, value: () => departures.value });
 // <SplitFlapCanvas :target="board" :face="face" :cell="{ w: 28, h: 44 }"
@@ -330,7 +327,7 @@ new ResizeObserver(([entry]) =>
 API. It listens to the core, so it works with any renderer (or none):
 
 ```ts
-import { FlapSound } from '@kinnet-studio/split-flaps/sound';
+import { FlapSound } from '@kinnet-studio/split-flap/sound';
 
 const sound = new FlapSound({ target: board, volume: 0.5 });
 // Browsers only allow audio after a user gesture:
@@ -387,6 +384,6 @@ Releases are published from GitHub Actions: run the **Release** workflow on `mai
 
 - **Version bump:** `auto` reads the conventional commits since the last `v*` tag (`bun scripts/next-version.ts`); `patch`, `minor` and `major` force one.
 - **Dry run:** bumps and packs in the runner, then stops without publishing or pushing. It can run on any branch.
-- A release commits `chore(release): split-flaps x.y.z`, tags `vx.y.z`, publishes to npm with provenance, opens a GitHub release, and, from `main`, creates a `version/x.y.z` branch.
+- A release commits `chore(release): split-flap x.y.z`, tags `vx.y.z`, publishes to npm with provenance, opens a GitHub release, and, from `main`, creates a `version/x.y.z` branch.
 
 npm trusts the workflow through trusted publishing, so no npm token is stored.

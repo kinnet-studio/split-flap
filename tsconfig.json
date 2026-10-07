@@ -11,16 +11,16 @@
         "verbatimModuleSyntax": true,
         "types": [],
         "paths": {
-            "@kinnet-studio/split-flaps": ["./src/core/index.ts"],
-            "@kinnet-studio/split-flaps/canvas": ["./src/canvas/index.ts"],
-            "@kinnet-studio/split-flaps/pixi": ["./src/pixi/index.ts"],
-            "@kinnet-studio/split-flaps/sound": ["./src/sound/index.ts"],
-            "@kinnet-studio/split-flaps/react": ["./src/react/index.ts"],
-            "@kinnet-studio/split-flaps/react-pixi": [
+            "@kinnet-studio/split-flap": ["./src/core/index.ts"],
+            "@kinnet-studio/split-flap/canvas": ["./src/canvas/index.ts"],
+            "@kinnet-studio/split-flap/pixi": ["./src/pixi/index.ts"],
+            "@kinnet-studio/split-flap/sound": ["./src/sound/index.ts"],
+            "@kinnet-studio/split-flap/react": ["./src/react/index.ts"],
+            "@kinnet-studio/split-flap/react-pixi": [
                 "./src/react-pixi/index.ts"
             ],
-            "@kinnet-studio/split-flaps/vue": ["./src/vue/index.ts"],
-            "@kinnet-studio/split-flaps/vue-pixi": ["./src/vue-pixi/index.ts"]
+            "@kinnet-studio/split-flap/vue": ["./src/vue/index.ts"],
+            "@kinnet-studio/split-flap/vue-pixi": ["./src/vue-pixi/index.ts"]
         }
     },
     "include": ["src", "test", "examples"],

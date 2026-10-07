@@ -5,13 +5,13 @@ import {
     FlapSequence,
     type RowValues,
     textField,
-} from '@kinnet-studio/split-flaps';
+} from '@kinnet-studio/split-flap';
 import {
     FLAP_THEMES,
     type FlapStyle,
     textFace,
     type ThemeName,
-} from '@kinnet-studio/split-flaps/canvas';
+} from '@kinnet-studio/split-flap/canvas';
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
 const cities = new FlapSequence(['', 'TOKYO', 'OSAKA', 'KYOTO', 'NAGOYA']);

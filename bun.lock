@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@kinnet-studio/split-flaps",
+      "name": "@kinnet-studio/split-flap",
       "dependencies": {
         "@ue-too/animate": "^0.19.0",
       },

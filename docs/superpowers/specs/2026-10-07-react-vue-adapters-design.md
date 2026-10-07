@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-07
 **Status:** Approved; revised after the pre-PR review (see "Revisions after review")
-**Package:** `@kinnet-studio/split-flaps`, new entry points `/react`, `/react-pixi`, `/vue`, `/vue-pixi`
+**Package:** `@kinnet-studio/split-flap`, new entry points `/react`, `/react-pixi`, `/vue`, `/vue-pixi`
 **Depends on:** `setStyle` / `setFace` on both renderers (PR #6)
 
 ## Summary
