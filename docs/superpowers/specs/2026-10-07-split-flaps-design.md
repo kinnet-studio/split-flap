@@ -136,6 +136,7 @@ unit.spin(): void
 unit.stop(): void
 unit.snapTo(flap: T): void
 unit.update(dt: number): void
+unit.timeScale: number         // default 1; multiplies dt; 0 pauses
 
 unit.state: { current: T; next: T | null; progress: number; direction: 1 | -1 }
 unit.target: T | null          // where the unit is heading or last settled; null while spinning
@@ -164,7 +165,10 @@ Semantics:
   (emits `settled`).
 - `snapTo(flap)`: sets `current` immediately; clears flip, queue, delay, and spinning; emits no
   events.
-- `update(dt)`: ignores `dt <= 0` and non-finite `dt`. Consumes `dt` in a loop: pending delay
+- `timeScale` multiplies every `dt` before use. Scales compound board × field × unit, so
+  flips, stagger delays and playlist holds all speed up or slow down together. It must be a
+  finite number >= 0 (0 pauses); anything else throws `RangeError`.
+- `update(dt)`: ignores `dt <= 0` and non-finite `dt` (after scaling). Consumes `dt` in a loop: pending delay
   first, then flip time; when a flip completes, the overshoot carries into the next flip, so one
   large `dt` may complete several flips. A spinning unit with an empty queue fast-forwards whole
   revolutions for huge `dt` (cost does not grow with `dt`); the skipped flips emit no events and
@@ -213,6 +217,7 @@ field.snap(value: V): void
 field.spin(): void
 field.stop(): void
 field.update(dt: number): void
+field.timeScale: number          // default 1; multiplies dt passed to its units
 field.units: readonly FlapUnit<T>[]
 field.isSettled: boolean
 field.on('settled' | 'flipend', cb): () => void   // flipend payload adds { unit: index }
@@ -249,6 +254,7 @@ board.play(messages: Message<S>[], opts?: { hold?: number; loop?: boolean }): vo
 board.spin(): void
 board.stop(): void
 board.update(dt: number): void
+board.timeScale: number          // default 1; multiplies dt for fields and the playlist
 board.isSettled: boolean
 board.rowCount: number
 board.schema: S

@@ -134,6 +134,22 @@ board.on('settled', () => console.log('done'));
 
 The hold timer starts once the board has settled on a message.
 
+## Speed
+
+`flipDuration` (per unit, or per field via `unit: { flipDuration }`) sets how
+long one flip takes. To change speed while running, set `timeScale` on a
+board, field or unit. It multiplies the `dt` passed to `update()`, so flips,
+stagger delays and playlist holds all scale together:
+
+```ts
+board.timeScale = 2; // twice as fast
+board.field(0, 'dest').timeScale = 0.5; // this field at half of that
+board.timeScale = 0; // pause
+```
+
+Scales compound down the tree (board × field × unit). Negative or non-finite
+values throw.
+
 ## Custom renderers
 
 Read `unit.state` (`{ current, next, progress, direction }`) every frame.

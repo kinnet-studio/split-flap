@@ -1,6 +1,7 @@
 import { Emitter } from './emitter.js';
 import { type FieldSpec, fieldStaggerDelays, FlapField } from './field.js';
 import { type Message, type PlayOptions, Playlist } from './playlist.js';
+import { checkTimeScale } from './time-scale.js';
 import type { FlipEvent } from './unit.js';
 
 /** A board schema: field name → field spec. */
@@ -70,6 +71,7 @@ export class FlapBoard<S extends Schema> {
     private readonly emitter = new Emitter<BoardEvents<S>>();
     private wasSettled = true;
     private playlist: Playlist<S> | null = null;
+    private scale = 1;
 
     constructor(options: BoardOptions<S>) {
         if (!Number.isInteger(options.rows) || options.rows < 1) {
@@ -181,16 +183,33 @@ export class FlapBoard<S extends Schema> {
         this.eachField(field => field.stop());
     }
 
+    /**
+     * Multiplies every `dt` passed to {@link update}: 2 runs twice as fast,
+     * 0.5 at half speed, 0 pauses. Compounds with parent scales.
+     */
+    get timeScale(): number {
+        return this.scale;
+    }
+
+    set timeScale(value: number) {
+        this.scale = checkTimeScale(value, 'FlapBoard');
+    }
+
+    /**
+     * Advances every field and the playlist by `dt` ms (times
+     * {@link timeScale}), so playlist holds scale too.
+     */
     update(dt: number): void {
-        if (!(dt > 0) || !Number.isFinite(dt)) {
+        const scaled = dt * this.scale;
+        if (!(scaled > 0) || !Number.isFinite(scaled)) {
             return;
         }
         // Children are public API; work started on them directly counts too.
         if (!this.isSettled) {
             this.wasSettled = false;
         }
-        this.eachField(field => field.update(dt));
-        this.playlist?.update(dt);
+        this.eachField(field => field.update(scaled));
+        this.playlist?.update(scaled);
         if (this.isSettled && !this.wasSettled) {
             this.wasSettled = true;
             this.emitter.emit('settled', {});
