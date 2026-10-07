@@ -72,8 +72,9 @@ interface SynthClickOptions {
     noise?: number;       // 0..1 noise vs tone mix, default 1
     brightness?: number;  // (0, 1] low-pass amount per stage (1 = no filtering), default 0.85
     attack?: number;      // s, linear fade-in (0 = instant), default 0.0002
-    body?: number;        // 0..1 level of the rattle after the strike, default 0.45
+    body?: number;        // 0..1 level of the rattle after the strike, default 0.35
     bodyDecay?: number;   // s, body time constant, default 0.04
+    rattle?: number;      // impacts per second in the body (0 = smooth hiss), default 5000
     bounce?: number;      // 0..1 level of one bounce (0 = none), default 0.3
     bounceDelay?: number; // s from strike to bounce, default 0.011
 }
@@ -103,21 +104,34 @@ function renderClick(
   in [−1, 1] from `random`) through a band-pass biquad (constant 0 dB peak, Q = `resonance`) centred on
   `frequency` (clamped to 0.45 × sampleRate so the filter stays stable).
 - Envelope, with `rise(t) = min(1, t / attack)` (1 when `attack` is 0):
-  `env = rise(t) × (exp(−t / decay) + body × exp(−t / bodyDecay))`, plus, from
-  `tb = t − bounceDelay ≥ 0`, `bounce × rise(tb) × exp(−tb / decay)`: a strike, the flap and
-  housing ringing on, and one smaller bounce.
+  `env = rise(t) × (exp(−t / decay) + B(t))`, plus, from `tb = t − bounceDelay ≥ 0`,
+  `bounce × rise(tb) × exp(−tb / decay)`: a strike, the flap and housing rattling on, and one
+  smaller bounce. With `rattle` 0 the body is smooth, `B(t) = body × exp(−t / bodyDecay)`.
+  Otherwise it is a scatter of impacts: each sample, with probability `rattle / sampleRate`
+  (one more `random` draw), an impact of size `s = −ln(1 − r)` (exponential, mean 1; another
+  draw) adds `body × exp(−t / bodyDecay) × s / (rattle × 0.0006)` to an accumulator that decays
+  with a 0.6 ms time constant, and `B(t)` is that accumulator. On average it follows the smooth
+  body, but it arrives as separate knocks rather than a hiss.
 - `raw × env` goes through two one-pole low-pass stages, each
   `y = y_prev + brightness × (x − y_prev)`; finally the buffer is normalized so its peak absolute
   value is 0.9.
-- The defaults were fitted to a recording of a real module flipping about 29 flaps a second: the
-  synth click was placed at each detected landing (time and level) and the rebuilt 1.3 s burst
-  compared with the recording. The fit is within about 2.5 dB of the recording's 1 ms RMS
+- The defaults were fitted to a recording of a real module: a loud landing about every 60 ms
+  with quieter ticks between (27 detected hits in 1.3 s). The synth click was placed at each
+  detected hit (time and level) and the rebuilt burst compared with the recording. The fit is within about 2.5 dB of the recording's 1 ms RMS
   envelope on average, within about 11 points summed over eight frequency bands, and leaves the
   gaps between landings 11.3 dB below the strikes (recording: 11.7 dB). The real sound is a
   sub-millisecond, unpitched strike with most of its energy above 4 kHz and a rattle that runs
   into the next flap; that rattle (`body`) is what makes a fast run sound even rather than
   spiky. The 0.2 ms fade-in still starts the click from silence, and the noise has almost no
   energy below 600 Hz, so there is no low pop.
+- The rattle replaced a smooth body that sounded like a taser: a sharp crack followed by static,
+  repeated. Measured over 3–30 ms after the strike, the real flaps' rattle has a kurtosis of
+  4.3–8.2 and peaks 8.7–14 dB above its median 0.25 ms level; the smooth body had 3.4 and
+  6.7 dB, i.e. plain noise. At 5000 impacts a second, each 0.6 ms long, with `body` 0.35, the
+  takes measure 4.2–7.4 and 10–12 dB, and the rebuilt burst keeps its gaps 11.6 dB below the
+  strikes (recording 11.7 dB).
+- `renderClickVariants(sampleRate, options, count)` renders `count` takes seeded
+  `0x5f1a95 + i`; take 0 is the default click.
 - A softer, lower clack (fitted earlier to a generated single-flap sound) is documented in the
   README as a `synth` preset: `frequency` 1100, `resonance` 0.6, `noise` 0.91, `brightness` 0.5,
   `attack` 0.003, `decay` 0.004, `body` 0.15, `bodyDecay` 0.022, `bounceDelay` 0.022.
@@ -146,6 +160,9 @@ function renderClick(
   makeup gain raises every click, and it lets 5 ms transients through.)
 - Per-click variation (from `random`): `playbackRate = 1 + (2r₁ − 1) × variation.pitch`;
   `gain = 1 − r₂ × variation.volume`; start delay `r₃ × variation.timing`.
+- Takes: on unlock the synth click is rendered as 8 takes (`renderClickVariants`), and each
+  landing plays take `floor(r₄ × 8)`, so a fast run doesn't repeat one sound. A loaded sample is
+  a single take and draws no `r₄`.
 - Voice cap: playing voices are kept oldest first and removed on the source's `ended` event. A
   landing while `maxVoices` are playing steals the oldest: its gain ramps to 0
   (`setTargetAtTime(0, now, 0.004)`) and its source stops 20 ms later, so every landing is heard
@@ -192,7 +209,8 @@ single column or `pan: 0` gives 0.
 
 - `renderClick`: length; starts from silence (fade-in); over 60% of the strike's energy above
   4 kHz and under 3% below 600 Hz; no 200 Hz band holds 10% of it (unpitched); rattles on after
-  the strike and bounces once; peak near the start and decay towards
+  the strike and bounces once; the rattle of every take is spiky (kurtosis > 4) and a smooth
+  body is not; takes differ and take 0 is the default click; peak near the start and decay towards
   the end; deterministic for the default seed; `noise: 0` matches a decaying sine (with
   `brightness: 1`, `attack: 0`, `body: 0`, `bounce: 0`); stays finite with `frequency` above
   Nyquist; every sample within ±0.9 after normalization; validation errors.
@@ -201,7 +219,7 @@ single column or `pan: 0` gives 0.
   createStereoPanner / createBuffer / decodeAudioData / resume / close; `ended` triggered
   manually): silent before unlock; plays on `flipend` with expected pan, rate and gain (seeded
   `random`), including the timing spread; master → headroom → soft clipper → destination; clipper
-  curve unity below the knee, monotonic and within ±1; oldest voice faded and stopped when all are busy; voice release on `ended`; muted creates no nodes; `volume` setter
+  curve unity below the knee, monotonic and within ±1; oldest voice faded and stopped when all are busy; a different synth take per landing; voice release on `ended`; muted creates no nodes; `volume` setter
   updates master gain; URL sample via stubbed `fetch`; failed load falls back to synth and rejects;
   `destroy` unsubscribes; closes only a context it created; missing Web Audio rejects.
 - Entry point export test; build dist check covers `/sound`.

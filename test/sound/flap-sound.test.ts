@@ -4,13 +4,14 @@ import { FlapBoard } from '../../src/core/board';
 import { defineField, textField } from '../../src/core/field';
 import { FlapSequence } from '../../src/core/sequence';
 import { FlapUnit } from '../../src/core/unit';
-import { renderClick } from '../../src/sound/click';
+import { renderClickVariants } from '../../src/sound/click';
 import {
     CLIP_KNEE,
     CLIP_RANGE,
     FlapSound,
     type FlapSoundOptions,
     softClipCurve,
+    SYNTH_VARIANTS,
 } from '../../src/sound/flap-sound';
 import {
     asAudioContext,
@@ -65,12 +66,27 @@ describe('FlapSound', () => {
         expect(clipper.curve).toEqual(softClipCurve());
         expect(clipper.oversample).toBe('none');
         expect(clipper.connections).toEqual([context.destination]);
-        sound.play();
+        sound.play(); // random 0.5 picks the middle take
         const buffer = context.sources[0].buffer as FakeBuffer;
+        const takes = renderClickVariants(48000, {}, SYNTH_VARIANTS);
         expect(buffer.length).toBe(7680);
-        expect(Array.from(buffer.getChannelData(0).slice(0, 5))).toEqual(
-            Array.from(renderClick(48000).slice(0, 5))
+        expect(buffer.getChannelData(0)).toEqual(takes[SYNTH_VARIANTS / 2]);
+    });
+
+    it('plays a different take of the synth click per landing', async () => {
+        const { context, sound } = setup({
+            random: sequenceOf(0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0.99),
+        });
+        await sound.unlock();
+        sound.play();
+        sound.play();
+        const [first, second] = context.sources.map(
+            source => source.buffer as FakeBuffer
         );
+        expect(second).not.toBe(first);
+        const takes = renderClickVariants(48000, {}, SYNTH_VARIANTS);
+        expect(first.getChannelData(0)).toEqual(takes[0]);
+        expect(second.getChannelData(0)).toEqual(takes[SYNTH_VARIANTS - 1]);
     });
 
     it('shares one unlock between repeated calls', async () => {

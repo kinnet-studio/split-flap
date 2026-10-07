@@ -1,5 +1,5 @@
 import {
-    renderClick,
+    renderClickVariants,
     resolveSynthClick,
     type SynthClickOptions,
 } from './click.js';
@@ -48,6 +48,9 @@ interface Voice {
 /** Seconds for a stolen voice to fade out before it stops. */
 const STEAL_FADE = 0.004;
 
+/** Takes of the synth click; each landing plays one at random. */
+export const SYNTH_VARIANTS = 8;
+
 interface FlipSource {
     on(event: 'flipend', listener: (event: FlipPosition) => void): () => void;
 }
@@ -71,7 +74,8 @@ export class FlapSound {
     private context: AudioContext | null;
     private master: GainNode | null = null;
     private clipper: WaveShaperNode | null = null;
-    private buffer: AudioBuffer | null = null;
+    /** Clicks to choose from: the synth takes, or the one loaded sample. */
+    private buffers: AudioBuffer[] = [];
     private unlocking: Promise<void> | null = null;
     private ready = false;
     private destroyed = false;
@@ -153,26 +157,35 @@ export class FlapSound {
      * before unlock or when muted.
      */
     play(pan = 0): void {
-        const { context, master, buffer } = this;
+        const { context, master, buffers } = this;
         if (
             !this.ready ||
             this.destroyed ||
             this.silenced ||
             !context ||
             !master ||
-            !buffer
+            buffers.length === 0
         ) {
             return;
         }
         while (this.voices.length >= this.maxVoices) {
             this.release(this.voices[0], context.currentTime);
         }
+        const rate = 1 + (this.random() * 2 - 1) * this.pitchVariation;
+        const level = Math.max(0, 1 - this.random() * this.volumeVariation);
+        const delay = this.random() * this.timingVariation;
+        const take =
+            buffers.length === 1
+                ? 0
+                : Math.min(
+                      buffers.length - 1,
+                      Math.floor(this.random() * buffers.length)
+                  );
         const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.playbackRate.value =
-            1 + (this.random() * 2 - 1) * this.pitchVariation;
+        source.buffer = buffers[take];
+        source.playbackRate.value = rate;
         const gain = context.createGain();
-        gain.gain.value = Math.max(0, 1 - this.random() * this.volumeVariation);
+        gain.gain.value = level;
         const panner = context.createStereoPanner();
         panner.pan.value = Math.max(-1, Math.min(1, pan));
         source.connect(gain);
@@ -186,9 +199,7 @@ export class FlapSound {
             gain.disconnect();
             panner.disconnect();
         };
-        source.start(
-            context.currentTime + this.random() * this.timingVariation
-        );
+        source.start(context.currentTime + delay);
     }
 
     /** Stops listening and releases audio; closes only a context it created. */
@@ -229,22 +240,26 @@ export class FlapSound {
         this.master = master;
         this.clipper = clipper;
         this.applyMasterGain();
-        this.buffer = this.synthBuffer(context);
+        this.buffers = this.synthBuffers(context);
         this.ready = true;
         if (this.sample !== undefined) {
-            this.buffer = await loadSample(context, this.sample);
+            this.buffers = [await loadSample(context, this.sample)];
         }
     }
 
-    private synthBuffer(context: AudioContext): AudioBuffer {
-        const samples = renderClick(context.sampleRate, this.synth);
-        const buffer = context.createBuffer(
-            1,
-            samples.length,
-            context.sampleRate
+    private synthBuffers(context: AudioContext): AudioBuffer[] {
+        const { sampleRate } = context;
+        return renderClickVariants(sampleRate, this.synth, SYNTH_VARIANTS).map(
+            samples => {
+                const buffer = context.createBuffer(
+                    1,
+                    samples.length,
+                    sampleRate
+                );
+                buffer.getChannelData(0).set(samples);
+                return buffer;
+            }
         );
-        buffer.getChannelData(0).set(samples);
-        return buffer;
     }
 
     private applyMasterGain(): void {

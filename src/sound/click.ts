@@ -31,11 +31,16 @@ export interface SynthClickOptions {
     attack?: number;
     /**
      * 0..1 level of the flap and housing rattling on after the strike.
-     * Default 0.45.
+     * Default 0.35.
      */
     body?: number;
     /** Seconds for the body to fall by about 63%. Default 0.04. */
     bodyDecay?: number;
+    /**
+     * Tiny impacts per second that make up the body: the flap knocking
+     * against its neighbours. 0 makes the body a smooth hiss. Default 5000.
+     */
+    rattle?: number;
     /**
      * 0..1 level of the flap bouncing once after it lands; 0 = none.
      * Default 0.3.
@@ -53,13 +58,17 @@ export const DEFAULT_SYNTH_CLICK: Required<SynthClickOptions> = {
     noise: 1,
     brightness: 0.85,
     attack: 0.0002,
-    body: 0.45,
+    body: 0.35,
     bodyDecay: 0.04,
+    rattle: 5000,
     bounce: 0.3,
     bounceDelay: 0.011,
 };
 
 const DEFAULT_SEED = 0x5f1a95;
+
+/** Seconds for one rattle impact to fall by about 63%. */
+const IMPACT_DECAY = 0.0006;
 
 /** Fills in defaults and validates synth options. */
 export function resolveSynthClick(
@@ -93,7 +102,7 @@ export function resolveSynthClick(
             `renderClick: brightness must be in (0, 1], got ${resolved.brightness}`
         );
     }
-    for (const name of ['attack', 'bounceDelay'] as const) {
+    for (const name of ['attack', 'bounceDelay', 'rattle'] as const) {
         const value = resolved[name];
         if (!(value >= 0) || !Number.isFinite(value)) {
             throw new RangeError(
@@ -106,7 +115,7 @@ export function resolveSynthClick(
 
 /**
  * Synthesizes one split-flap click: a strike, the body rattling on after it
- * and one smaller bounce. The sound is noise band-passed around `frequency`
+ * as a scatter of tiny impacts, and one smaller bounce. The sound is noise band-passed around `frequency`
  * mixed with a tone there, through a two-stage low-pass, normalized to a 0.9
  * peak. The default `random` is a fixed-seed PRNG, so the default click
  * never changes.
@@ -131,6 +140,7 @@ export function renderClick(
         attack,
         body,
         bodyDecay,
+        rattle,
         bounce,
         bounceDelay,
     } = resolveSynthClick(options);
@@ -146,6 +156,9 @@ export function renderClick(
     const a1 = (-2 * Math.cos(w0)) / (1 + alpha);
     const a2 = (1 - alpha) / (1 + alpha);
     const rise = (t: number) => (attack > 0 ? Math.min(1, t / attack) : 1);
+    const impactChance = rattle / sampleRate;
+    const impactFade = Math.exp(-1 / (IMPACT_DECAY * sampleRate));
+    let impacts = 0;
     let in1 = 0;
     let in2 = 0;
     let out1 = 0;
@@ -163,8 +176,18 @@ export function renderClick(
         out1 = band;
         const raw =
             noise * band + (1 - noise) * Math.sin(2 * Math.PI * frequency * t);
-        let envelope =
-            rise(t) * (Math.exp(-t / decay) + body * Math.exp(-t / bodyDecay));
+        let rattling = body * Math.exp(-t / bodyDecay);
+        if (rattle > 0) {
+            // Random impacts of random size, scaled so their average
+            // follows the smooth body level.
+            impacts *= impactFade;
+            if (random() < impactChance) {
+                const size = -Math.log(1 - random());
+                impacts += (rattling * size) / (rattle * IMPACT_DECAY);
+            }
+            rattling = impacts;
+        }
+        let envelope = rise(t) * (Math.exp(-t / decay) + rattling);
         const sinceBounce = t - bounceDelay;
         if (bounce > 0 && sinceBounce >= 0) {
             envelope +=
@@ -182,4 +205,18 @@ export function renderClick(
         }
     }
     return samples;
+}
+
+/**
+ * Renders `count` takes of the same click with different randomness, so
+ * repeated landings don't sound identical. The first is the default click.
+ */
+export function renderClickVariants(
+    sampleRate: number,
+    options: SynthClickOptions,
+    count: number
+): Float32Array[] {
+    return Array.from({ length: count }, (_, index) =>
+        renderClick(sampleRate, options, mulberry32(DEFAULT_SEED + index))
+    );
 }

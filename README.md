@@ -345,9 +345,10 @@ it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
 
 The default click is synthesized (no audio files) and modelled on a recording
 of a real split-flap module: a crisp, unpitched tick of broadband noise (most of
-it above 4 kHz) and a short rattle after it, which run together into an even
-"trrrr" when flaps fall quickly. Real modules flip fast; `flipDuration: 35` or
-so gives the same pace. Pass `synth` to tune the click, or `sample` (an
+it above 4 kHz) and a short rattle of tiny impacts after it, which run together
+into an even "trrrr" when flaps fall quickly. Each landing plays one of eight
+takes of the click, so a run never repeats the exact same sound. The recorded
+module lands a flap about every 60 ms; `flipDuration: 60` gives the same pace. Pass `synth` to tune the click, or `sample` (an
 `AudioBuffer` or a URL) to use your own recording. For a softer, lower clack:
 
 ```ts

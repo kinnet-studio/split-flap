@@ -4,6 +4,7 @@ import {
     DEFAULT_SYNTH_CLICK,
     mulberry32,
     renderClick,
+    renderClickVariants,
 } from '../../src/sound/click';
 
 const RATE = 48000;
@@ -14,6 +15,20 @@ function energy(samples: Float32Array, from: number, to: number): number {
         sum += samples[i] * samples[i];
     }
     return sum;
+}
+
+/** Kurtosis: 3 for smooth noise, higher when energy comes in sparse spikes. */
+function kurtosis(samples: Float32Array): number {
+    const mean = samples.reduce((sum, v) => sum + v, 0) / samples.length;
+    let square = 0;
+    let fourth = 0;
+    for (const v of samples) {
+        square += (v - mean) ** 2;
+        fourth += (v - mean) ** 4;
+    }
+    square /= samples.length;
+    fourth /= samples.length;
+    return fourth / (square * square);
 }
 
 /** Power per DFT bin of the first 2048 samples (the strike), as [Hz, power]. */
@@ -114,6 +129,25 @@ describe('renderClick', () => {
         );
     });
 
+    it('rattles as scattered impacts rather than a smooth hiss', () => {
+        const body = (click: Float32Array) =>
+            click.subarray(Math.round(0.003 * RATE), Math.round(0.03 * RATE));
+        for (const click of renderClickVariants(RATE, {}, 8)) {
+            expect(kurtosis(body(click))).toBeGreaterThan(4);
+        }
+        for (const click of renderClickVariants(RATE, { rattle: 0 }, 8)) {
+            expect(kurtosis(body(click))).toBeLessThan(4);
+        }
+    });
+
+    it('renders different takes of the same click', () => {
+        const takes = renderClickVariants(RATE, {}, 3);
+        expect(takes[0]).toEqual(renderClick(RATE));
+        expect(takes[1]).toHaveLength(takes[0].length);
+        expect(takes[1]).not.toEqual(takes[0]);
+        expect(takes[2]).not.toEqual(takes[1]);
+    });
+
     it('is normalized to a 0.9 peak', () => {
         const click = renderClick(RATE);
         const peak = click.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
@@ -171,6 +205,7 @@ describe('renderClick', () => {
             { bodyDecay: 0 },
             { bounce: -0.1 },
             { bounceDelay: -1 },
+            { rattle: -1 },
         ]) {
             expect(() => renderClick(RATE, options)).toThrow(RangeError);
         }
