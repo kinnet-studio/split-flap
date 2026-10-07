@@ -18,7 +18,7 @@ const result = await Bun.build({
     // Shared modules go into chunks so the core classes exist once and
     // `instanceof` works across entry points.
     splitting: true,
-    sourcemap: 'external',
+    sourcemap: 'linked',
     external: ['pixi.js', '@ue-too/animate'],
 });
 

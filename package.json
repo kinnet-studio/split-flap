@@ -2,6 +2,16 @@
     "name": "@kinnet-studio/split-flaps",
     "version": "0.1.0",
     "description": "Renderer-agnostic split-flap display engine with Canvas 2D and Pixi renderers",
+    "keywords": [
+        "split-flap",
+        "solari",
+        "departure-board",
+        "flip-display",
+        "animation",
+        "canvas",
+        "pixi"
+    ],
+    "author": "niuee",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -35,7 +45,11 @@
         },
         "./package.json": "./package.json"
     },
+    "publishConfig": {
+        "access": "public"
+    },
     "scripts": {
+        "prepublishOnly": "bun run typecheck && bun run test && bun run build",
         "build": "rm -rf dist && bun scripts/build.ts && tsc -p tsconfig.build.json && bun scripts/check-dist.ts",
         "dev": "vite --config examples/vite.config.ts",
         "test": "vitest run",
