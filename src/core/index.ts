@@ -15,3 +15,13 @@ export {
     type UnitOptions,
     type UnitState,
 } from './unit';
+export {
+    defineField,
+    fieldStaggerDelays,
+    FlapField,
+    textField,
+    type FieldEvents,
+    type FieldSetOptions,
+    type FieldSpec,
+    type FieldStagger,
+} from './field';
