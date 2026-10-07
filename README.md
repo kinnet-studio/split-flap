@@ -24,7 +24,8 @@ The API is layered; use whichever level you need.
 | `FlapBoard`    | Rows of named fields. `show()`, `row(i).set()`, `play()`.                                 |
 
 The core never reads the clock. Call `update(dt)` (milliseconds) yourself, or
-let a renderer's loop do it.
+let a renderer's loop do it. If you drive `update(dt)` yourself, cap `dt` (e.g.
+`Math.min(dt, MAX_FRAME_DT)`, exported by the renderer entry points) so a stalled tab does not jump the display.
 
 ## Quick start (Canvas 2D)
 
@@ -83,6 +84,9 @@ view.attach(app.ticker); // or call view.update(dt) yourself
 `/pixi` imports `pixi.js`, so install `pixi.js@^8` before importing it; the core
 and `/canvas` entry points never load Pixi.
 
+If one target is drawn by two renderers, only one of them should advance time.
+Call `view.sync()` on the other, e.g. `app.ticker.add(() => view.sync())`.
+
 Face painters are shared: the same `textFace(...)` or custom
 `(ctx, flap, w, h) => void` works in both renderers. For ready-made textures use
 `textureFace(flap => texture)`.
@@ -97,6 +101,24 @@ Face painters are shared: the same `textFace(...)` or custom
 | `unknownFlap`  | `'pad'`     | Targets missing from the drum show the pad flap, or throw.  |
 
 A flip in progress always completes before a new target takes effect.
+
+## Fields
+
+A `FieldSpec` (`defineField`, `textField`, or a board schema entry) takes:
+
+| Option     | Meaning                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `length`   | Number of units in the field.                                 |
+| `toFlaps`  | Converts a value into one flap per unit.                      |
+| `align`    | `'left'` (default), `'right'` or `'center'` for short values. |
+| `overflow` | `'truncate'` (default) or `'throw'` for long values.          |
+| `pad`      | Flap shown by unused units.                                   |
+| `cells`    | Layout cells each unit occupies (board stagger columns).      |
+| `stagger`  | Field-level start delays between units.                       |
+| `unit`     | Per-unit options (see below).                                 |
+
+Field stagger orders: `sequential | reverse | random | none`. Board stagger
+orders: `column | row | diagonal | random | none`.
 
 ## Playlists, spinning and events
 

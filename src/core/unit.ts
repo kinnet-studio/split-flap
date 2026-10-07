@@ -173,7 +173,13 @@ export class FlapUnit<T> {
         this.wasSettled = true;
     }
 
-    /** Advances time by `dt` ms. Overshoot carries into the next flip. */
+    /**
+     * Advances time by `dt` ms. Overshoot carries into the next flip.
+     *
+     * A spinning unit with no flip pending fast-forwards whole revolutions
+     * when `dt` is huge, so the cost does not grow with `dt`. The visible end
+     * state is identical; the skipped flips emit no events.
+     */
     update(dt: number): void {
         if (!(dt > 0) || !Number.isFinite(dt)) {
             return;
@@ -185,6 +191,13 @@ export class FlapUnit<T> {
                 if (this.queue.length === 0 && !this.spinning) {
                     break;
                 }
+                if (this.spinning && this.queue.length === 0) {
+                    // Whole revolutions land back on the same flap: drop them.
+                    const rev = this.flipDuration * this.sequence.length;
+                    if (remaining > 2 * rev) {
+                        remaining = rev + (remaining % rev);
+                    }
+                }
                 if (this.delay > 0) {
                     const used = Math.min(this.delay, remaining);
                     this.delay -= used;
@@ -194,6 +207,10 @@ export class FlapUnit<T> {
                     }
                 }
                 flip = this.startFlip();
+                if (this.flip !== flip) {
+                    // A flipstart listener replaced the flip (snapTo, etc.).
+                    continue;
+                }
             }
             const needed = this.flipDuration - flip.elapsed;
             if (remaining < needed) {

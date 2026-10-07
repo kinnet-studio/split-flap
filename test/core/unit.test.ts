@@ -280,6 +280,31 @@ describe('FlapUnit', () => {
         expect(log.at(-1)).toBe('settled C');
     });
 
+    it('fast-forwards whole revolutions for a huge dt while spinning', () => {
+        const unit = makeUnit();
+        unit.spin();
+        const started = performance.now();
+        unit.update(6e11 + 250);
+        expect(performance.now() - started).toBeLessThan(500);
+        // 6e11 is an exact multiple of one revolution (6 flaps x 100 ms).
+        expect(unit.state).toEqual({
+            current: 'B',
+            next: 'C',
+            progress: 0.5,
+            direction: 1,
+        });
+    });
+
+    it('lets a flipstart listener replace the flip being started', () => {
+        const unit = makeUnit();
+        unit.on('flipstart', () => unit.snapTo('E'));
+        unit.setTarget('C');
+        unit.update(1000);
+        expect(unit.state.current).toBe('E');
+        expect(unit.state.next).toBeNull();
+        expect(unit.target).toBe('E');
+    });
+
     it('spins forward regardless of cycle and direction', () => {
         const unit = makeUnit({ cycle: 'direct', direction: 'shortest' });
         unit.spin();
