@@ -95,7 +95,12 @@ export class PixiFlapView extends Container {
 
     override destroy(options?: DestroyOptions): void {
         this.detach();
-        super.destroy(options ?? { children: true });
+        super.destroy({
+            ...(typeof options === 'object' ? options : {}),
+            children: true,
+            texture: false,
+            textureSource: false,
+        });
         for (const textures of this.faceTextures.values()) {
             textures.destroy();
         }

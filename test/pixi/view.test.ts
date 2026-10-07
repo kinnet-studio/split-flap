@@ -150,6 +150,14 @@ describe('PixiFlapView', () => {
         expect(view.destroyed).toBe(true);
     });
 
+    it('keeps shared and user-supplied textures alive when destroyed', () => {
+        const { view, sourceOf } = setupUnit();
+        view.destroy(true);
+        expect(view.destroyed).toBe(true);
+        expect(Texture.WHITE.destroyed).toBe(false);
+        expect(sourceOf('-').destroyed).toBe(false);
+    });
+
     it('throws when a board field has no face', () => {
         const board = new FlapBoard({
             rows: 1,
