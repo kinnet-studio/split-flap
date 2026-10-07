@@ -41,6 +41,10 @@ convenient abstraction. Renderers mirror the same layering.
 - Dependencies: `@ue-too/animate` (regular dependency; imported only by render code).
 - Peer dependencies: `pixi.js@^8` marked optional via `peerDependenciesMeta`; imported only by
   `/pixi`.
+- `package.json` sets `sideEffects: ["./src/**/*.ts"]`, not `false`. Bun 1.3 drops the shared
+  chunks when it is `false`, producing an unusable `dist/`. Published `dist/` files do not match
+  the glob, so consumers still tree-shake. `scripts/check-dist.ts` runs last in `build` to catch
+  a regression.
 - Tooling (matches ue-too): Bun, TypeScript strict, Vitest, Prettier (4-space indent, single
   quotes, trailing comma es5), build with `Bun.build()` + `tsc --emitDeclarationOnly`. No Nx.
 
@@ -162,13 +166,17 @@ Semantics:
   events.
 - `update(dt)`: ignores `dt <= 0` and non-finite `dt`. Consumes `dt` in a loop: pending delay
   first, then flip time; when a flip completes, the overshoot carries into the next flip, so one
-  large `dt` may complete several flips. Events fire synchronously inside `update`, in order:
+  large `dt` may complete several flips. A spinning unit with an empty queue fast-forwards whole
+  revolutions for huge `dt` (cost does not grow with `dt`); the skipped flips emit no events and
+  the visible end state is identical. Events fire synchronously inside `update`, in order:
   `flipstart` → `flipend` → (next `flipstart` …) → `settled` after the final `flipend`.
 - Event payloads: `flipstart` / `flipend` → `{ from: T; to: T; direction: 1 | -1 }`;
   `settled` → `{ flap: T }`.
 - `settled` is emitted at the end of an `update` in which the unit transitions from unsettled to
   settled. `setTarget`/`spin` that create work mark the unit unsettled; `snapTo` marks it settled
-  without an event. Fields and boards use the same transition rule for their `settled` events.
+  without an event. Fields and boards use the same transition rule for their `settled` events,
+  and it also covers work started directly on their children (`board.field(...)`,
+  `field.units[i]`).
 
 ### FieldSpec and FlapField<T, V>
 
@@ -337,7 +345,7 @@ A face painter draws one full flap face; both renderers use it.
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type FacePainter<T> = (ctx: Ctx2D, flap: T, width: number, height: number) => void;
 
-textFace(opts: { font: string; color: string; background: string; align?: 'center' }): FacePainter<string>
+textFace(opts: { font: string; color: string; background: string }): FacePainter<string>
 colorFace(): FacePainter<string>   // flap is a CSS colour
 ```
 
@@ -380,10 +388,10 @@ size.
 ```ts
 drawUnit(ctx, state: UnitState<T>, rect: Rect, opts: { faces: FaceCache<T>; style: FlapStyle; flipCurve }): void
 
-new CanvasFlapRenderer<T>({
+new CanvasFlapRenderer({
   canvas: HTMLCanvasElement;
   target: FlapBoard<any> | FlapField<T, any> | FlapUnit<T>;
-  face: FacePainter<T>;          // or a per-field map for boards: { [fieldName]: FacePainter }
+  face: FacePainter<any>;        // or a per-field map for boards: { [fieldName]: FacePainter }
   style?: FlapStyle;
   flipCurve?: (progress: number) => number;
   dpr?: number;                  // default globalThis.devicePixelRatio ?? 1, re-read on resize()
@@ -405,9 +413,9 @@ renderer.destroy(): void
 ### Pixi renderer (`/pixi`)
 
 ```ts
-new PixiFlapView<T>({
+new PixiFlapView({
   target: FlapBoard<any> | FlapField<T, any> | FlapUnit<T>;
-  face: FacePainter<T> | TextureFace<T>;   // or a per-field map for boards
+  face: FacePainter<any> | TextureFace<any>;   // or a per-field map for boards
   resolution?: number;                     // face canvas resolution, default devicePixelRatio ?? 1
   createCanvas?: (w: number, h: number) => FaceCanvas;
   style?: FlapStyle;
@@ -418,7 +426,7 @@ view.attach(ticker: Ticker): void   // per tick: target.update(ticker.deltaMS ca
 view.detach(): void
 view.update(dt: number): void       // target.update(dt); sync()
 view.sync(): void                   // apply current state to the scene graph
-view.destroy(): void                // releases textures created by the view
+view.destroy(): void                // releases textures created by the view; never destroys textures it did not create (forces `texture: false`)
 ```
 
 - `textureFace((flap: T) => Texture)` wraps a texture lookup so it can be told apart from a
