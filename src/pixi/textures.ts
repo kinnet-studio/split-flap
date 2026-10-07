@@ -1,7 +1,7 @@
 import { CanvasSource, type ICanvas, Rectangle, Texture } from 'pixi.js';
 
 import { type CanvasFactory, FaceCache } from '../render/face-cache.js';
-import type { FacePainter } from '../render/faces.js';
+import type { FaceContext, FacePainter } from '../render/faces.js';
 
 /** A face backed by ready-made Pixi textures instead of a painter. */
 export interface TextureFace<T> {
@@ -38,6 +38,12 @@ export interface FaceTexturesOptions {
     /** Corner radius baked into painted faces. */
     radius: number;
     createCanvas?: CanvasFactory;
+    /** 0..1 grain baked into painted faces. Default 0. */
+    grain?: number;
+    /** 0..1 light falloff baked into painted faces. Default 0. */
+    light?: number;
+    /** Passed to the painter. */
+    context?: FaceContext;
 }
 
 type Source<T> =
@@ -71,6 +77,9 @@ export class FaceTextures<T> {
                       dpr: options.resolution,
                       radius: options.radius,
                       createCanvas: options.createCanvas,
+                      grain: options.grain,
+                      light: options.light,
+                      context: options.context,
                   }),
               };
     }

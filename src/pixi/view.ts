@@ -170,13 +170,17 @@ export class PixiFlapView extends Container {
     }
 
     private texturesFor(slot: UnitSlot): FaceTextures<any> {
-        const cached = this.faceTextures.get(slot.field);
+        const face = this.faceFor(slot.field);
+        // A perRow painter's faces differ by row, so they get textures per row.
+        const perRow = !isTextureFace(face) && face.perRow === true;
+        const cacheKey = perRow ? `${slot.field}\u0000${slot.row}` : slot.field;
+        const cached = this.faceTextures.get(cacheKey);
         if (cached) {
             return cached;
         }
         const textures = new FaceTextures<any>(
             flap => slot.sequence.key(flap),
-            this.faceFor(slot.field),
+            face,
             {
                 width: slot.rect.w,
                 // Faces fill the cell minus the covered-flap stack.
@@ -187,9 +191,12 @@ export class PixiFlapView extends Container {
                         1) * this.zoom,
                 radius: this.flapStyle.radius,
                 createCanvas: this.viewOptions.createCanvas,
+                grain: this.flapStyle.grain,
+                light: this.flapStyle.light,
+                context: { row: perRow ? slot.row : 0, field: slot.field },
             }
         );
-        this.faceTextures.set(slot.field, textures);
+        this.faceTextures.set(cacheKey, textures);
         return textures;
     }
 
