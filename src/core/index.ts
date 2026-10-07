@@ -25,3 +25,15 @@ export {
     type FieldSpec,
     type FieldStagger,
 } from './field';
+export {
+    FlapBoard,
+    type BoardEvents,
+    type BoardField,
+    type BoardFlipEvent,
+    type BoardOptions,
+    type BoardStagger,
+    type FlapOf,
+    type RowValues,
+    type Schema,
+    type ValueOf,
+} from './board';
