@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import * as canvas from '../src/canvas';
 import * as core from '../src/core';
 import * as pixi from '../src/pixi';
+import * as react from '../src/react';
+import * as reactPixi from '../src/react-pixi';
 import * as sound from '../src/sound';
+import * as vue from '../src/vue';
+import * as vuePixi from '../src/vue-pixi';
 
 describe('entry points', () => {
     it('exports the core runtime API', () => {
@@ -79,5 +83,16 @@ describe('entry points', () => {
                 'renderClick',
             ].sort()
         );
+    });
+
+    it('exports the React and Vue adapters', () => {
+        expect(Object.keys(react).sort()).toEqual(
+            ['SplitFlapCanvas', 'useFlapBoard'].sort()
+        );
+        expect(Object.keys(reactPixi)).toEqual(['usePixiFlapView']);
+        expect(Object.keys(vue).sort()).toEqual(
+            ['SplitFlapCanvas', 'useFlapBoard'].sort()
+        );
+        expect(Object.keys(vuePixi)).toEqual(['usePixiFlapView']);
     });
 });

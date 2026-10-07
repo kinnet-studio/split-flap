@@ -85,7 +85,9 @@ view.attach(app.ticker); // or call view.update(dt) yourself
 and `/canvas` entry points never load Pixi.
 
 If one target is drawn by two renderers, only one of them should advance time.
-Call `view.sync()` on the other, e.g. `app.ticker.add(() => view.sync())`.
+Attach the other with `view.attach(app.ticker, { update: false })`, which only
+syncs each tick (or call `view.sync()` yourself). `view.destroy()` detaches it,
+even after the ticker itself was destroyed.
 
 Face painters are shared: the same `textFace(...)` or custom
 `(ctx, flap, w, h) => void` works in both renderers. For ready-made textures use
@@ -195,6 +197,102 @@ new PixiFlapView({
 shrinks by `count × step`, and layout and canvas size stay the same. The edges
 are the real earlier flaps on the drum, so colour faces show the previous
 colours.
+
+## React
+
+```ts
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/react';
+
+function Departures({ rows }: { rows: RowValues<typeof schema>[] }) {
+    // One stable board; `value` is shown whenever its content changes.
+    const board = useFlapBoard({ rows: 4, schema, value: rows });
+    return (
+        <SplitFlapCanvas
+            target={board}
+            face={face} // keep painters stable: module scope or useMemo
+            cell={{ w: 28, h: 44 }}
+            flapStyle={{ finish: 'matte' }}
+            fit="width"
+        />
+    );
+}
+```
+
+How props are handled:
+
+- `cell`, `gap` and `flapStyle` are compared by content, and `face` by
+  identity. Changes go through `setLayout`, `setStyle` and `setFace`.
+- `target`, `fit` and `drive` recreate the renderer, so keep `target` stable
+  (`useFlapBoard` does).
+- `flipCurve`, `dpr`, `createCanvas` and `scheduler` are read once, when the
+  renderer is created, so inline functions are fine. To change one later,
+  remount with a new `key`.
+- `drive={false}` only draws a board that something else advances.
+- `className` and `style` style the wrapper `<div>`.
+
+`value` and `flapStyle` are compared with `JSON.stringify`. That means:
+
+- Values that serialize the same count as equal. For example, class instances
+  whose data lives in getters all serialize as `{}`, so use plain data.
+- Values that can't be serialized (a `BigInt`, a cycle) are compared by
+  identity instead, so memoize them.
+
+For Pixi, `usePixiFlapView(app, options)` from `/react-pixi` adds a view to an
+`Application` you manage and returns it (`null` until `app` is set).
+`app`, `target` and `drive` recreate the view. `resolution`, `flipCurve` and
+`createCanvas` are read once. In the render where one of those changes, the
+hook still returns the old view, and the same commit destroys it. An effect
+that uses the view should check for that:
+
+```ts
+const view = usePixiFlapView(app, { target: board, face, cell });
+useEffect(() => {
+    if (!view || view.destroyed) return;
+    view.position.set(16, 16);
+}, [view]);
+```
+
+The view is safe to clean up after the app is destroyed: unmounting after
+`app.destroy()` doesn't throw.
+
+## Vue
+
+```ts
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/vue';
+
+const board = useFlapBoard({ rows: 4, schema, value: () => departures.value });
+// <SplitFlapCanvas :target="board" :face="face" :cell="{ w: 28, h: 44 }"
+//                  :flap-style="{ finish: 'matte' }" fit="width" class="board" />
+```
+
+- `value` may be an array, a ref or a getter, and nested changes are tracked.
+  It is compared by content, with the same caveats as in React.
+- The component takes the same props as the React one, with the same rules
+  for what recreates the renderer. `class` and `style` fall through to the
+  wrapper.
+- The board returned by `useFlapBoard` is kept out of Vue's reactivity
+  (`markRaw`). Do the same for other core objects you put in reactive state.
+
+For Pixi, `usePixiFlapView(app, options)` from `/vue-pixi`:
+
+```ts
+const app = shallowRef<Application | null>(null); // set once it's initialised
+const view = usePixiFlapView(app, () => ({
+    target: board,
+    face, // created once, outside the getter
+    cell: { w: 28, h: 44 },
+    flapStyle: settings.flapStyle,
+}));
+```
+
+- Hold the app in a `shallowRef`. A deep `ref` would proxy the whole
+  `Application`.
+- Pass the options as a getter over your reactive state.
+- `face` and `target` are compared by identity, so create them outside the
+  getter. A painter created inside it is new on every run, so every change
+  would repaint every face.
+- The view is created once the app is set, recreated when `app`, `target` or
+  `drive` changes, and destroyed when the scope is disposed.
 
 ## Sizing and resizing
 

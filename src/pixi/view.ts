@@ -45,8 +45,12 @@ export class PixiFlapView extends Container {
     private faceTextures = new Map<string, FaceTextures<any>>();
     private zoom = 1;
     private ticker: Ticker | null = null;
+    private listener: ((ticker: Ticker) => void) | null = null;
     private readonly onTick = (ticker: Ticker): void => {
         this.update(Math.min(MAX_FRAME_DT, ticker.deltaMS));
+    };
+    private readonly onSync = (): void => {
+        this.sync();
     };
 
     constructor(options: PixiFlapViewOptions) {
@@ -127,16 +131,32 @@ export class PixiFlapView extends Container {
         this.refreshTextures();
     }
 
-    /** Drives `update` from a Pixi ticker (frame delta capped at 250 ms). */
-    attach(ticker: Ticker): void {
+    /**
+     * Drives `update` from a Pixi ticker (frame delta capped at 250 ms). With
+     * `update: false` it only syncs each tick, mirroring a target that
+     * something else advances.
+     */
+    attach(ticker: Ticker, options: { update?: boolean } = {}): void {
         this.detach();
-        ticker.add(this.onTick);
+        const listener = (options.update ?? true) ? this.onTick : this.onSync;
+        ticker.add(listener);
         this.ticker = ticker;
+        this.listener = listener;
     }
 
     detach(): void {
-        this.ticker?.remove(this.onTick);
+        const { ticker, listener } = this;
         this.ticker = null;
+        this.listener = null;
+        if (!ticker || !listener) {
+            return;
+        }
+        try {
+            ticker.remove(listener);
+        } catch {
+            // The ticker was destroyed first (e.g. with its Application), so
+            // there is no listener left to remove.
+        }
     }
 
     /** Advances the target by `dt` ms, then syncs the scene graph. */

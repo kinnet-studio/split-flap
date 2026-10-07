@@ -197,8 +197,13 @@ export class CanvasFlapRenderer {
         });
     }
 
-    /** Runs a frame loop: update the target by the frame delta, then render. */
-    start(): void {
+    /**
+     * Runs a frame loop: update the target by the frame delta, then render.
+     * With `update: false` it only renders, mirroring a target that something
+     * else advances (e.g. another renderer's loop).
+     */
+    start(options: { update?: boolean } = {}): void {
+        const update = options.update ?? true;
         if (this.destroyed || this.frame !== null) {
             return;
         }
@@ -206,7 +211,7 @@ export class CanvasFlapRenderer {
             // This frame has fired; a throw below must not leave a stale id.
             this.frame = null;
             try {
-                if (this.lastTime !== null) {
+                if (update && this.lastTime !== null) {
                     const dt = Math.min(MAX_FRAME_DT, time - this.lastTime);
                     if (dt > 0) {
                         this.target.update(dt);
