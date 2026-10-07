@@ -47,6 +47,22 @@
             "types": "./dist/sound/index.d.ts",
             "import": "./dist/sound/index.js"
         },
+        "./react": {
+            "types": "./dist/react/index.d.ts",
+            "import": "./dist/react/index.js"
+        },
+        "./react-pixi": {
+            "types": "./dist/react-pixi/index.d.ts",
+            "import": "./dist/react-pixi/index.js"
+        },
+        "./vue": {
+            "types": "./dist/vue/index.d.ts",
+            "import": "./dist/vue/index.js"
+        },
+        "./vue-pixi": {
+            "types": "./dist/vue-pixi/index.d.ts",
+            "import": "./dist/vue-pixi/index.js"
+        },
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -66,10 +82,18 @@
         "@ue-too/animate": "^0.19.0"
     },
     "peerDependencies": {
-        "pixi.js": "^8.0.0"
+        "pixi.js": "^8.0.0",
+        "react": ">=18",
+        "vue": "^3.3"
     },
     "peerDependenciesMeta": {
         "pixi.js": {
+            "optional": true
+        },
+        "react": {
+            "optional": true
+        },
+        "vue": {
             "optional": true
         }
     },

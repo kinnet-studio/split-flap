@@ -196,6 +196,50 @@ shrinks by `count × step`, and layout and canvas size stay the same. The edges
 are the real earlier flaps on the drum, so colour faces show the previous
 colours.
 
+## React
+
+```ts
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/react';
+
+function Departures({ rows }: { rows: RowValues<typeof schema>[] }) {
+    // One stable board; `value` is shown whenever its content changes.
+    const board = useFlapBoard({ rows: 4, schema, value: rows });
+    return (
+        <SplitFlapCanvas
+            target={board}
+            face={face} // keep painters stable: module scope or useMemo
+            cell={{ w: 28, h: 44 }}
+            flapStyle={{ finish: 'matte' }}
+            fit="width"
+        />
+    );
+}
+```
+
+`cell` / `gap` / `flapStyle` are compared by content and `face` by identity;
+changes go through `setLayout` / `setStyle` / `setFace`. `target`, `fit` and
+`drive` changes recreate the renderer; `drive={false}` only draws a board that
+something else advances. `className` / `style` style the wrapper `<div>`. For
+Pixi, `usePixiFlapView(app, options)` from `/react-pixi` adds a view to an
+`Application` you manage.
+
+## Vue
+
+```ts
+import { SplitFlapCanvas, useFlapBoard } from '@kinnet-studio/split-flaps/vue';
+
+const board = useFlapBoard({ rows: 4, schema, value: () => departures.value });
+// <SplitFlapCanvas :target="board" :face="face" :cell="{ w: 28, h: 44 }"
+//                  :flap-style="{ finish: 'matte' }" fit="width" class="board" />
+```
+
+`value` may be an array, a ref or a getter (nested changes are tracked). The
+component takes the same props as the React one; `class` / `style` fall
+through to the wrapper. `usePixiFlapView(app, options)` from `/vue-pixi`
+accepts an app ref that may start `null`; pass options as a getter over your
+reactive state. The board returned by `useFlapBoard` is kept out of Vue's
+reactivity (`markRaw`); do the same for core objects you put in reactive state.
+
 ## Sizing and resizing
 
 `cell` (unit size), `gap` and a field's `cells` (width in cells) set the

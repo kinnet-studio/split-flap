@@ -27,6 +27,10 @@ try {
     const canvasEntry = await import('../dist/canvas/index.js');
     const pixi = await import('../dist/pixi/index.js');
     const sound = await import('../dist/sound/index.js');
+    const react = await import('../dist/react/index.js');
+    const reactPixi = await import('../dist/react-pixi/index.js');
+    const vue = await import('../dist/vue/index.js');
+    const vuePixi = await import('../dist/vue-pixi/index.js');
 
     const keys = Object.keys(core).sort();
     const expected = [...EXPECTED_CORE_EXPORTS].sort();
@@ -52,6 +56,20 @@ try {
     check(
         typeof sound.FlapSound === 'function',
         'sound entry does not export FlapSound as a function'
+    );
+
+    check(
+        typeof react.useFlapBoard === 'function' &&
+            typeof react.SplitFlapCanvas === 'function' &&
+            typeof reactPixi.usePixiFlapView === 'function',
+        'react entries do not export useFlapBoard, SplitFlapCanvas and usePixiFlapView'
+    );
+
+    check(
+        typeof vue.useFlapBoard === 'function' &&
+            typeof vue.SplitFlapCanvas === 'object' &&
+            typeof vuePixi.usePixiFlapView === 'function',
+        'vue entries do not export useFlapBoard, SplitFlapCanvas and usePixiFlapView'
     );
 } catch (error) {
     failures.push(`failed to load dist: ${String(error)}`);

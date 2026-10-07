@@ -11,6 +11,10 @@ const result = await Bun.build({
         './src/canvas/index.ts',
         './src/pixi/index.ts',
         './src/sound/index.ts',
+        './src/react/index.ts',
+        './src/react-pixi/index.ts',
+        './src/vue/index.ts',
+        './src/vue-pixi/index.ts',
     ],
     root: './src',
     outdir: './dist',
@@ -20,7 +24,7 @@ const result = await Bun.build({
     // `instanceof` works across entry points.
     splitting: true,
     sourcemap: 'linked',
-    external: ['pixi.js', '@ue-too/animate'],
+    external: ['pixi.js', '@ue-too/animate', 'react', 'react-dom', 'vue'],
 });
 
 if (!result.success) {

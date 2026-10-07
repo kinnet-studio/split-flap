@@ -24,9 +24,13 @@
       },
       "peerDependencies": {
         "pixi.js": "^8.0.0",
+        "react": ">=18",
+        "vue": "^3.3",
       },
       "optionalPeers": [
         "pixi.js",
+        "react",
+        "vue",
       ],
     },
   },

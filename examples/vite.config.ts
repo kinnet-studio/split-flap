@@ -13,6 +13,14 @@ export default defineConfig({
                 replacement: fromHere('../src/canvas/index.ts'),
             },
             {
+                find: /^@kinnet-studio\/split-flaps\/react$/,
+                replacement: fromHere('../src/react/index.ts'),
+            },
+            {
+                find: /^@kinnet-studio\/split-flaps\/vue$/,
+                replacement: fromHere('../src/vue/index.ts'),
+            },
+            {
                 find: /^@kinnet-studio\/split-flaps\/sound$/,
                 replacement: fromHere('../src/sound/index.ts'),
             },
@@ -25,5 +33,14 @@ export default defineConfig({
                 replacement: fromHere('../src/core/index.ts'),
             },
         ],
+    },
+    build: {
+        rollupOptions: {
+            input: {
+                main: fromHere('index.html'),
+                react: fromHere('react.html'),
+                vue: fromHere('vue.html'),
+            },
+        },
     },
 });
