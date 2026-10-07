@@ -6,6 +6,12 @@ const fromHere = (path: string) =>
 
 export default defineConfig({
     root: fromHere('.'),
+    // Vue's esm-bundler build warns unless these compile-time flags are set.
+    define: {
+        __VUE_OPTIONS_API__: true,
+        __VUE_PROD_DEVTOOLS__: false,
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+    },
     resolve: {
         alias: [
             {
@@ -17,8 +23,16 @@ export default defineConfig({
                 replacement: fromHere('../src/react/index.ts'),
             },
             {
+                find: /^@kinnet-studio\/split-flaps\/react-pixi$/,
+                replacement: fromHere('../src/react-pixi/index.ts'),
+            },
+            {
                 find: /^@kinnet-studio\/split-flaps\/vue$/,
                 replacement: fromHere('../src/vue/index.ts'),
+            },
+            {
+                find: /^@kinnet-studio\/split-flaps\/vue-pixi$/,
+                replacement: fromHere('../src/vue-pixi/index.ts'),
             },
             {
                 find: /^@kinnet-studio\/split-flaps\/sound$/,
