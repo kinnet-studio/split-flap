@@ -423,10 +423,12 @@ bun run build
 bun run dev   # examples app
 ```
 
-The examples app plays the synth click. To hear real recordings instead, put
-audio files (`.wav`, `.mp3`, `.ogg`, `.m4a`) anywhere under `examples/sounds/`
-and reload the page; the Sound button then reads "Sound: on (N recordings)". The
-folder is git-ignored, so the files stay on your machine.
+The examples app plays recorded flaps by default (`examples/flap-sounds/`, see
+its `CREDITS.md`; they are not part of the published package). Its Sound select
+switches to the synth. To try your own recordings, put audio files (`.wav`,
+`.mp3`, `.ogg`, `.m4a`) anywhere under `examples/sounds/` and reload: they show
+up as "Sound: your recordings". That folder is git-ignored, so the files stay
+on your machine.
 
 ## Releasing
 

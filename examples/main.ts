@@ -21,19 +21,30 @@ import { PixiFlapView } from '@kinnet-studio/split-flap/pixi';
 import { FlapSound } from '@kinnet-studio/split-flap/sound';
 import { Application } from 'pixi.js';
 
-// Flap recordings anywhere under examples/sounds/ (git-ignored, so they are
-// never committed) replace the synth click; without any, the synth plays.
-const recordings = Object.values(
+// The default sound: single flaps cut from a recording of a real board (see
+// flap-sounds/CREDITS.md).
+const recordedFlaps = Object.values(
+    import.meta.glob<string>('./flap-sounds/*.wav', {
+        eager: true,
+        query: '?url',
+        import: 'default',
+    })
+);
+// Your own recordings anywhere under examples/sounds/ (git-ignored, so they
+// are never committed) add a "your recordings" choice.
+const localFlaps = Object.values(
     import.meta.glob<string>(
         './sounds/**/*.{wav,WAV,mp3,MP3,ogg,OGG,m4a,M4A}',
         { eager: true, query: '?url', import: 'default' }
     )
 );
-console.info(
-    recordings.length > 0
-        ? `Sound: ${recordings.length} recordings from examples/sounds/`
-        : 'Sound: synth (no audio files found in examples/sounds/)'
-);
+
+/** What the Sound select can pick; recordings run louder, so lower volume. */
+const SOUND_SOURCES: Record<string, { sample?: string[]; volume: number }> = {
+    recorded: { sample: recordedFlaps, volume: 0.3 },
+    synth: { volume: 0.4 },
+    local: { sample: localFlaps, volume: 0.3 },
+};
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
 const cities = new FlapSequence([
@@ -218,23 +229,42 @@ async function departures(): Promise<void> {
     onClick('stop', () => board.stop());
 
     // Sound starts muted; the first click unlocks audio (browsers require a
-    // user gesture) and toggles it on.
-    const sound = new FlapSound({
-        target: board,
-        volume: 0.4,
-        muted: true,
-        ...(recordings.length > 0 ? { sample: recordings } : {}),
-    });
-    const source =
-        recordings.length > 0 ? `${recordings.length} recordings` : 'synth';
+    // user gesture) and toggles it on. Picking another source swaps in a new
+    // FlapSound that keeps the old one's muted and unlocked state.
+    const sourceSelect = document.getElementById('sound-source');
+    if (sourceSelect instanceof HTMLSelectElement && localFlaps.length > 0) {
+        sourceSelect.add(
+            new Option(`Sound: your recordings (${localFlaps.length})`, 'local')
+        );
+    }
+    const makeSound = (muted: boolean) => {
+        const key =
+            sourceSelect instanceof HTMLSelectElement
+                ? sourceSelect.value
+                : 'recorded';
+        const { sample, volume } = SOUND_SOURCES[key] ?? SOUND_SOURCES.recorded;
+        return new FlapSound({
+            target: board,
+            volume,
+            muted,
+            ...(sample ? { sample } : {}),
+        });
+    };
+    let sound = makeSound(true);
     const soundButton = document.getElementById('sound');
     onClick('sound', () => {
         sound.unlock().catch(error => console.error(error));
         sound.muted = !sound.muted;
         if (soundButton) {
-            soundButton.textContent = sound.muted
-                ? 'Sound: off'
-                : `Sound: on (${source})`;
+            soundButton.textContent = sound.muted ? 'Sound: off' : 'Sound: on';
+        }
+    });
+    sourceSelect?.addEventListener('change', () => {
+        const { muted, unlocked } = sound;
+        sound.destroy();
+        sound = makeSound(muted);
+        if (unlocked) {
+            sound.unlock().catch(error => console.error(error));
         }
     });
 }
