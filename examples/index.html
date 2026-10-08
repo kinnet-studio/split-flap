@@ -101,6 +101,32 @@
             </div>
         </section>
         <section>
+            <h2>Marquee: scrolling text</h2>
+            <div class="controls">
+                <input
+                    id="marquee-input"
+                    value="NOW BOARDING - FLIGHT KN 247 TO TOKYO - GATE 12"
+                    size="40"
+                />
+                <button id="marquee-scroll">Scroll</button>
+                <select id="marquee-pace" aria-label="Pace">
+                    <option value="settle" selected>
+                        Pace: wait for the flaps
+                    </option>
+                    <option value="2000">Pace: a step every 2 s</option>
+                    <option value="1000">Pace: a step every 1 s</option>
+                    <option value="500">Pace: a step every 0.5 s</option>
+                </select>
+                <select id="marquee-speed" aria-label="Flap speed">
+                    <option value="0.5">Flaps: slow</option>
+                    <option value="1" selected>Flaps: normal</option>
+                    <option value="2">Flaps: fast</option>
+                    <option value="4">Flaps: very fast</option>
+                </select>
+            </div>
+            <canvas id="marquee-canvas"></canvas>
+        </section>
+        <section>
             <h2>Colour flaps (shortest path)</h2>
             <canvas id="colors-canvas"></canvas>
         </section>
