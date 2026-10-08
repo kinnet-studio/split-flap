@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>split-flap matrix animations</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 24px;
+                background: #1b1b1f;
+                color: #eeeeee;
+                font-family: system-ui, sans-serif;
+            }
+            section {
+                margin-bottom: 40px;
+            }
+            h2 {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #a8a8b0;
+            }
+            p {
+                max-width: 640px;
+                color: #c8c8d0;
+                line-height: 1.5;
+            }
+            .controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 8px 0 16px;
+            }
+            button {
+                background: #2c2c33;
+                color: #eeeeee;
+                border: 1px solid #44444c;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font: inherit;
+                cursor: pointer;
+            }
+            a {
+                color: #a8a8b0;
+            }
+            canvas {
+                display: block;
+                max-width: 100%;
+            }
+            .clickable {
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <p><a href="./index.html">All examples</a></p>
+        <section>
+            <h2>Ripple</h2>
+            <p>
+                Click anywhere: the next colour spreads out from that unit, each
+                unit starting later the further away it is.
+            </p>
+            <canvas id="ripple-canvas" class="clickable"></canvas>
+        </section>
+        <section>
+            <h2>Game of Life</h2>
+            <p>
+                Two flaps per unit, so a cell flips once when it is born or
+                dies. Click a unit to toggle its cell.
+            </p>
+            <div class="controls">
+                <button id="life-seed">Reseed</button>
+            </div>
+            <canvas id="life-canvas" class="clickable"></canvas>
+        </section>
+        <section>
+            <h2>Plasma</h2>
+            <p>
+                Overlapping waves on a drum of twelve hues. Units take the
+                shorter way round the drum, so the bands flow.
+            </p>
+            <canvas id="plasma-canvas"></canvas>
+        </section>
+        <section>
+            <h2>Equalizer</h2>
+            <p>
+                Each unit flips between off and on; the painter colours lit
+                units by row.
+            </p>
+            <canvas id="eq-canvas"></canvas>
+        </section>
+        <section>
+            <h2>Clock</h2>
+            <p>
+                A 3 × 5 pixel font. Each second only the pixels that change
+                flip.
+            </p>
+            <canvas id="clock-canvas"></canvas>
+        </section>
+        <script type="module" src="./matrix.ts"></script>
+    </body>
+</html>

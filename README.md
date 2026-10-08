@@ -199,6 +199,74 @@ shrinks by `count × step`, and layout and canvas size stay the same. The edges
 are the real earlier flaps on the drum, so colour faces show the previous
 colours.
 
+## Pictures across several units
+
+A picture bigger than one flap, like an airline logo on a station board, is
+split across a grid of units, each flap carrying its own slice. Make each
+column of the grid a single-unit field, so a painter can tell the units apart
+by `{ row, field }`. Each column's painter draws the whole picture shifted to
+its unit's position, and the face keeps only that unit's slice:
+
+```ts
+const cols = 6;
+const rows = 5;
+const cell = { w: 40, h: 48 };
+const gap = 3;
+const pictures = new FlapSequence(['', 'plane', 'heart']);
+const columns = Array.from({ length: cols }, (_, col) => `c${col}`);
+
+const board = new FlapBoard({
+    rows,
+    schema: Object.fromEntries(
+        columns.map(name => [
+            name,
+            defineField({ sequence: pictures, length: 1 }),
+        ])
+    ),
+    stagger: { order: 'diagonal', step: 40 },
+});
+
+const slice = (col: number): FacePainter<string> =>
+    Object.assign(
+        (ctx: Ctx2D, flap: string, w: number, h: number, at?: FaceContext) => {
+            ctx.save();
+            ctx.translate(
+                -col * (cell.w + gap),
+                -(at?.row ?? 0) * (cell.h + gap)
+            );
+            drawPicture(ctx, flap); // your drawing, in whole-picture coordinates
+            ctx.restore();
+        },
+        { perRow: true } // faces differ by row
+    );
+
+new CanvasFlapRenderer({
+    canvas,
+    target: board,
+    face: Object.fromEntries(columns.map((name, col) => [name, slice(col)])),
+    cell,
+    gap: { field: gap, row: gap },
+}).start();
+
+const row = Object.fromEntries(columns.map(name => [name, 'plane']));
+board.show(Array.from({ length: rows }, () => row));
+```
+
+- The offset includes the gaps, as if the picture were printed across the
+  modules: the gaps hide thin strips of it instead of stretching it.
+- Restore the context before returning; the finish is baked into the face
+  after the painter runs.
+- With the default `cycle: 'all'`, each unit flips through the pictures in
+  between, so slices of them flash by. `cycle: 'direct'` goes straight there.
+- For pixel art, make each unit one pixel instead: rows of a colour field
+  drawn with `colorFace()`.
+
+The examples app (`bun run dev`) has a full version with four pictures. Its
+matrix page animates grids of single-pixel units: a ripple that spreads from
+a click (per-unit delays from `field.set(value, { delays })`), Conway's Game
+of Life, flowing plasma on a circular colour drum (`direction: 'shortest'`),
+an equalizer coloured by row (a `perRow` painter), and a pixel-font clock.
+
 ## React
 
 ```ts
