@@ -261,7 +261,11 @@ board.show(Array.from({ length: rows }, () => row));
 - For pixel art, make each unit one pixel instead: rows of a colour field
   drawn with `colorFace()`.
 
-The examples app (`bun run dev`) has a full version with four pictures.
+The examples app (`bun run dev`) has a full version with four pictures. Its
+matrix page animates grids of single-pixel units: a ripple that spreads from
+a click (per-unit delays from `field.set(value, { delays })`), Conway's Game
+of Life, flowing plasma on a circular colour drum (`direction: 'shortest'`),
+an equalizer coloured by row (a `perRow` painter), and a pixel-font clock.
 
 ## React
 

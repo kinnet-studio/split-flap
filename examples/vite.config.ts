@@ -54,6 +54,7 @@ export default defineConfig({
                 main: fromHere('index.html'),
                 react: fromHere('react.html'),
                 vue: fromHere('vue.html'),
+                matrix: fromHere('matrix.html'),
             },
         },
     },
