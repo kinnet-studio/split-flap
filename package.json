@@ -72,6 +72,7 @@
         "prepublishOnly": "bun run typecheck && bun run test && bun run build",
         "build": "rm -rf dist && bun scripts/build.ts && tsc -p tsconfig.build.json && bun scripts/check-dist.ts",
         "dev": "vite --config examples/vite.config.ts",
+        "build:examples": "vite build --config examples/vite.config.ts",
         "test": "vitest run",
         "test:watch": "vitest",
         "typecheck": "tsc -p tsconfig.json",
