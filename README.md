@@ -343,12 +343,53 @@ sound.muted = true; // or sound.volume = 0.2; or sound.destroy()
 Sound is opt-in: nothing plays unless you create a `FlapSound` and `unlock()`
 it. Pass `muted: true` to start muted (e.g. behind a "sound on" toggle).
 
-The default click is synthesized (no audio files); pass `synth` to tune it, or
-`sample` (an `AudioBuffer` or a URL) to use your own recording. Each click gets
-a small random pitch and volume change (`variation`), overlapping clicks are
-capped at `maxVoices` (default 12), and board clicks are panned left to right
-by column (`pan`, 0..1 width). If a sample URL fails to load, `unlock()`
-rejects but the synth click keeps playing.
+The default click is synthesized (no audio files) and modelled on a recording
+of a real split-flap module: a crisp, unpitched tick of broadband noise (most of
+it above 4 kHz) and a short rattle of tiny impacts after it, which run together
+into an even "trrrr" when flaps fall quickly. Each landing plays one of eight
+takes of the click, so a run never repeats the exact same sound. The recorded
+module lands a flap about every 60 ms; `flipDuration: 60` gives the same pace.
+Pass `synth` to tune the click. For a softer, lower clack:
+
+```ts
+const sound = new FlapSound({
+    target: board,
+    synth: {
+        frequency: 1100,
+        resonance: 0.6,
+        noise: 0.91,
+        brightness: 0.5,
+        attack: 0.003,
+        decay: 0.004,
+        body: 0.15,
+        bodyDecay: 0.022,
+        bounceDelay: 0.022,
+    },
+});
+```
+
+Each click gets a small random pitch, volume and timing change (`variation`;
+flaps that land in the same frame are spread over up to 12 ms instead of hitting
+in unison). At most `maxVoices` (default 12) clicks overlap; a new landing fades
+out the oldest. Board clicks are panned left to right by column (`pan`, 0..1
+width), and a soft clipper on the output rounds off the peaks of big bursts
+instead of letting them distort.
+
+To play real recordings instead, pass them as `sample`: `AudioBuffer`s, or URLs
+fetched and decoded on `unlock()`. With several, each landing plays one at
+random, which keeps a fast run from sounding like one sound on repeat. Short
+clips work best: one flap landing, trimmed to start right at the hit.
+
+```ts
+const sound = new FlapSound({
+    target: board,
+    sample: ['/sounds/flap-1.wav', '/sounds/flap-2.wav', '/sounds/flap-3.wav'],
+});
+```
+
+With `sample` the synth is never used: landings are silent until the
+recordings load. If one fails to load, `unlock()` rejects and the others still
+play.
 
 ## Speed
 
@@ -381,6 +422,13 @@ bun run typecheck
 bun run build
 bun run dev   # examples app
 ```
+
+The examples app plays recorded flaps by default (`examples/flap-sounds/`, see
+its `CREDITS.md`; they are not part of the published package). Its Sound select
+switches to the synth. To try your own recordings, put audio files (`.wav`,
+`.mp3`, `.ogg`, `.m4a`) anywhere under `examples/sounds/` and reload: they show
+up as "Sound: your recordings". That folder is git-ignored, so the files stay
+on your machine.
 
 ## Releasing
 

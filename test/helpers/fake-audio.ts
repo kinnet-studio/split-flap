@@ -2,6 +2,12 @@
 
 export class FakeParam {
     value = 0;
+    readonly targets: { target: number; at: number; timeConstant: number }[] =
+        [];
+
+    setTargetAtTime(target: number, at: number, timeConstant: number): void {
+        this.targets.push({ target, at, timeConstant });
+    }
 }
 
 export class FakeNode {
@@ -26,14 +32,24 @@ export class FakePanner extends FakeNode {
     readonly pan = new FakeParam();
 }
 
+export class FakeShaper extends FakeNode {
+    curve: Float32Array | null = null;
+    oversample: OverSampleType = 'none';
+}
+
 export class FakeSource extends FakeNode {
     buffer: unknown = null;
     readonly playbackRate = new FakeParam();
     onended: (() => void) | null = null;
     startedAt: number | null = null;
+    stoppedAt: number | null = null;
 
     start(when = 0): void {
         this.startedAt = when;
+    }
+
+    stop(when = 0): void {
+        this.stoppedAt = when;
     }
 
     /** Simulates the click finishing. */
@@ -68,6 +84,7 @@ export class FakeAudioContext {
     readonly sources: FakeSource[] = [];
     readonly gains: FakeGain[] = [];
     readonly panners: FakePanner[] = [];
+    readonly shapers: FakeShaper[] = [];
     readonly decoded: ArrayBuffer[] = [];
     decodeResult: unknown = new FakeBuffer(1, 10, 48000);
     decodeError: Error | null = null;
@@ -93,6 +110,12 @@ export class FakeAudioContext {
         const panner = new FakePanner();
         this.panners.push(panner);
         return panner;
+    }
+
+    createWaveShaper(): FakeShaper {
+        const shaper = new FakeShaper();
+        this.shapers.push(shaper);
+        return shaper;
     }
 
     createBufferSource(): FakeSource {

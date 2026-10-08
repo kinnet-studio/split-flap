@@ -4,8 +4,15 @@ import { FlapBoard } from '../../src/core/board';
 import { defineField, textField } from '../../src/core/field';
 import { FlapSequence } from '../../src/core/sequence';
 import { FlapUnit } from '../../src/core/unit';
-import { renderClick } from '../../src/sound/click';
-import { FlapSound, type FlapSoundOptions } from '../../src/sound/flap-sound';
+import { renderClickVariants } from '../../src/sound/click';
+import {
+    CLIP_KNEE,
+    CLIP_RANGE,
+    FlapSound,
+    type FlapSoundOptions,
+    softClipCurve,
+    SYNTH_VARIANTS,
+} from '../../src/sound/flap-sound';
 import {
     asAudioContext,
     FakeAudioContext,
@@ -45,20 +52,41 @@ describe('FlapSound', () => {
         expect(sound.unlocked).toBe(false);
     });
 
-    it('builds a master gain and the synth click on unlock', async () => {
+    it('builds master gain → soft clipper and the synth click on unlock', async () => {
         const { context, sound } = setup();
         await sound.unlock();
         expect(sound.unlocked).toBe(true);
         expect(context.resumed).toBe(1);
-        const [master] = context.gains;
+        const [master, headroom] = context.gains;
+        const [clipper] = context.shapers;
         expect(master.gain.value).toBe(0.5);
-        expect(master.connections).toEqual([context.destination]);
-        sound.play();
+        expect(master.connections).toEqual([headroom]);
+        expect(headroom.gain.value).toBe(1 / CLIP_RANGE);
+        expect(headroom.connections).toEqual([clipper]);
+        expect(clipper.curve).toEqual(softClipCurve());
+        expect(clipper.oversample).toBe('none');
+        expect(clipper.connections).toEqual([context.destination]);
+        sound.play(); // random 0.5 picks the middle take
         const buffer = context.sources[0].buffer as FakeBuffer;
-        expect(buffer.length).toBe(2400);
-        expect(Array.from(buffer.getChannelData(0).slice(0, 5))).toEqual(
-            Array.from(renderClick(48000).slice(0, 5))
+        const takes = renderClickVariants(48000, {}, SYNTH_VARIANTS);
+        expect(buffer.length).toBe(7680);
+        expect(buffer.getChannelData(0)).toEqual(takes[SYNTH_VARIANTS / 2]);
+    });
+
+    it('plays a different take of the synth click per landing', async () => {
+        const { context, sound } = setup({
+            random: sequenceOf(0.5, 0.5, 0.5, 0, 0.5, 0.5, 0.5, 0.99),
+        });
+        await sound.unlock();
+        sound.play();
+        sound.play();
+        const [first, second] = context.sources.map(
+            source => source.buffer as FakeBuffer
         );
+        expect(second).not.toBe(first);
+        const takes = renderClickVariants(48000, {}, SYNTH_VARIANTS);
+        expect(first.getChannelData(0)).toEqual(takes[0]);
+        expect(second.getChannelData(0)).toEqual(takes[SYNTH_VARIANTS - 1]);
     });
 
     it('shares one unlock between repeated calls', async () => {
@@ -74,33 +102,56 @@ describe('FlapSound', () => {
         unit.update(20);
         expect(context.sources).toHaveLength(2);
         const [source] = context.sources;
-        const [master, gain] = context.gains;
+        const [master, , gain] = context.gains;
         const [panner] = context.panners;
         expect(source.connections).toEqual([gain]);
         expect(gain.connections).toEqual([panner]);
         expect(panner.connections).toEqual([master]);
-        expect(source.startedAt).toBe(1.5);
+        expect(source.startedAt).toBeCloseTo(1.5 + 0.5 * 0.012);
         expect(panner.pan.value).toBe(0);
     });
 
-    it('varies pitch and volume with the random source', async () => {
-        const { context, sound } = setup({ random: sequenceOf(1, 0) });
+    it('varies pitch, volume and timing with the random source', async () => {
+        const { context, sound } = setup({ random: sequenceOf(1, 0, 1) });
         await sound.unlock();
         sound.play();
         expect(context.sources[0].playbackRate.value).toBeCloseTo(1.06);
-        expect(context.gains[1].gain.value).toBe(1);
+        expect(context.gains[2].gain.value).toBe(1);
+        expect(context.sources[0].startedAt).toBeCloseTo(1.512);
     });
 
-    it('caps overlapping clicks and frees a voice when one ends', async () => {
+    it('plays on time when timing variation is 0', async () => {
+        const { context, sound } = setup({ variation: { timing: 0 } });
+        await sound.unlock();
+        sound.play();
+        expect(context.sources[0].startedAt).toBe(1.5);
+    });
+
+    it('fades out the oldest click when every voice is busy', async () => {
         const { unit, context, sound } = setup({ maxVoices: 2 });
         await sound.unlock();
         unit.spin();
-        unit.update(50); // 5 landings
-        expect(context.sources).toHaveLength(2);
+        unit.update(30); // 3 landings
+        expect(context.sources).toHaveLength(3);
+        const [oldest, second, newest] = context.sources;
+        expect(context.gains[2].gain.targets).toEqual([
+            { target: 0, at: 1.5, timeConstant: 0.004 },
+        ]);
+        expect(oldest.stoppedAt).toBeCloseTo(1.52);
+        expect(second.stoppedAt).toBeNull();
+        expect(newest.stoppedAt).toBeNull();
+    });
+
+    it('frees a voice when its click ends', async () => {
+        const { unit, context, sound } = setup({ maxVoices: 2 });
+        await sound.unlock();
+        unit.spin();
+        unit.update(20); // 2 landings
         context.sources[0].end();
+        expect(context.sources[0].disconnected).toBe(true);
         unit.update(10);
         expect(context.sources).toHaveLength(3);
-        expect(context.sources[0].disconnected).toBe(true);
+        expect(context.sources[1].stoppedAt).toBeNull();
     });
 
     it('can start muted from the constructor', async () => {
@@ -183,6 +234,8 @@ describe('FlapSound', () => {
         unit.setTarget('A');
         unit.update(10);
         expect(context.sources).toHaveLength(0);
+        expect(context.gains[0].disconnected).toBe(true);
+        expect(context.shapers[0].disconnected).toBe(true);
         expect(context.closed).toBe(false);
     });
 
@@ -225,11 +278,46 @@ describe('FlapSound', () => {
             { maxVoices: 1.5 },
             { variation: { pitch: -1 } },
             { variation: { volume: NaN } },
+            { variation: { timing: -0.01 } },
             { synth: { brightness: 0 } },
         ]) {
             expect(() => new FlapSound({ target, ...options })).toThrow(
                 RangeError
             );
+        }
+    });
+});
+
+describe('softClipCurve', () => {
+    const curve = softClipCurve();
+    const inputAt = (index: number) =>
+        ((2 * index) / (curve.length - 1) - 1) * CLIP_RANGE;
+    const at = (input: number) =>
+        curve[((input / CLIP_RANGE + 1) / 2) * (curve.length - 1)];
+
+    it('passes levels up to the knee through unchanged', () => {
+        let checked = 0;
+        curve.forEach((output, index) => {
+            const input = inputAt(index);
+            if (Math.abs(input) <= CLIP_KNEE) {
+                expect(output).toBeCloseTo(input, 6);
+                checked++;
+            }
+        });
+        expect(checked).toBeGreaterThan(300);
+    });
+
+    it('rounds louder peaks off below full scale', () => {
+        expect(at(1)).toBeGreaterThan(CLIP_KNEE);
+        expect(at(1)).toBeLessThan(1);
+        expect(at(CLIP_RANGE)).toBeLessThanOrEqual(1);
+        expect(at(CLIP_RANGE)).toBeGreaterThan(0.99);
+        expect(at(-CLIP_RANGE)).toBe(-at(CLIP_RANGE));
+    });
+
+    it('never folds back: louder input is never quieter output', () => {
+        for (let i = 1; i < curve.length; i++) {
+            expect(curve[i]).toBeGreaterThanOrEqual(curve[i - 1]);
         }
     });
 });

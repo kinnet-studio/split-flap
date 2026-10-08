@@ -1,5 +1,5 @@
 import {
-    renderClick,
+    renderClickVariants,
     resolveSynthClick,
     type SynthClickOptions,
 } from './click.js';
@@ -10,6 +10,9 @@ import {
     type SoundTarget,
 } from './pan.js';
 
+/** A recording: an AudioBuffer used as-is, or a URL fetched on unlock(). */
+export type FlapSample = AudioBuffer | string;
+
 export interface FlapSoundOptions {
     /** Board, field or unit whose `flipend` events trigger clicks. */
     target: SoundTarget;
@@ -17,14 +20,25 @@ export interface FlapSoundOptions {
     volume?: number;
     /** Start muted; toggle later with the `muted` property. Default false. */
     muted?: boolean;
-    /** AudioBuffer used as-is, or a URL fetched and decoded on unlock(). */
-    sample?: AudioBuffer | string;
-    /** Synth click tuning; ignored once a sample has loaded. */
+    /**
+     * Recordings to play instead of the synth; with several, each landing
+     * plays one at random. Landings are silent until they load, and the
+     * synth is never used for them.
+     */
+    sample?: FlapSample | readonly FlapSample[];
+    /** Synth click tuning; unused when `sample` is given. */
     synth?: SynthClickOptions;
-    /** Clicks allowed to overlap; extra landings are skipped. Default 12. */
+    /**
+     * Clicks allowed to overlap; a landing past this fades out the oldest
+     * click to make room. Default 12.
+     */
     maxVoices?: number;
-    /** ± random spread per click. Defaults: pitch 0.06, volume 0.15. */
-    variation?: { pitch?: number; volume?: number };
+    /**
+     * Random spread per click: ± pitch and volume, and up to `timing`
+     * seconds of delay so flaps landing together don't hit in unison.
+     * Defaults: pitch 0.06, volume 0.5, timing 0.012.
+     */
+    variation?: { pitch?: number; volume?: number; timing?: number };
     /** 0..1 stereo width by column. Default 0.6. */
     pan?: number;
     /** Shared AudioContext; otherwise one is created on unlock(). */
@@ -32,6 +46,17 @@ export interface FlapSoundOptions {
     /** Random source for variation. Default Math.random. */
     random?: () => number;
 }
+
+interface Voice {
+    source: AudioBufferSourceNode;
+    gain: GainNode;
+}
+
+/** Seconds for a stolen voice to fade out before it stops. */
+const STEAL_FADE = 0.004;
+
+/** Takes of the synth click; each landing plays one at random. */
+export const SYNTH_VARIANTS = 8;
 
 interface FlipSource {
     on(event: 'flipend', listener: (event: FlipPosition) => void): () => void;
@@ -44,21 +69,25 @@ interface FlipSource {
  */
 export class FlapSound {
     private readonly synth: Required<SynthClickOptions>;
-    private readonly sample: AudioBuffer | string | undefined;
+    private readonly samples: readonly FlapSample[];
     private readonly maxVoices: number;
     private readonly pitchVariation: number;
     private readonly volumeVariation: number;
+    private readonly timingVariation: number;
     private readonly panFor: PanLookup;
     private readonly random: () => number;
     private readonly ownsContext: boolean;
     private readonly unsubscribe: () => void;
     private context: AudioContext | null;
     private master: GainNode | null = null;
-    private buffer: AudioBuffer | null = null;
+    private clipper: WaveShaperNode | null = null;
+    /** Clicks to choose from: the loaded samples, or the synth takes. */
+    private buffers: AudioBuffer[] = [];
     private unlocking: Promise<void> | null = null;
     private ready = false;
     private destroyed = false;
-    private active = 0;
+    /** Playing clicks, oldest first. */
+    private readonly voices: Voice[] = [];
     private level: number;
     private silenced: boolean;
 
@@ -78,11 +107,20 @@ export class FlapSound {
             'variation.pitch'
         );
         this.volumeVariation = checkNonNegative(
-            options.variation?.volume ?? 0.15,
+            options.variation?.volume ?? 0.5,
             'variation.volume'
         );
+        this.timingVariation = checkNonNegative(
+            options.variation?.timing ?? 0.012,
+            'variation.timing'
+        );
         this.synth = resolveSynthClick(options.synth);
-        this.sample = options.sample;
+        this.samples =
+            options.sample === undefined
+                ? []
+                : Array.isArray(options.sample)
+                  ? options.sample
+                  : [options.sample as FlapSample];
         this.random = options.random ?? Math.random;
         this.context = options.context ?? null;
         this.ownsContext = options.context === undefined;
@@ -117,48 +155,64 @@ export class FlapSound {
     }
 
     /**
-     * Creates or resumes the AudioContext and builds the click. Call it from
-     * a user gesture. Repeated calls share the first call's promise. If a
-     * sample URL fails to load, this rejects but the synth click is used.
+     * Creates or resumes the AudioContext and builds the click, or loads the
+     * samples. Call it from a user gesture. Repeated calls share the first
+     * call's promise. If a sample fails to load this rejects, and the
+     * samples that did load are played (none: silent).
      */
     unlock(): Promise<void> {
         this.unlocking ??= this.start();
         return this.unlocking;
     }
 
-    /** Plays one click now (pan -1..1). No-op before unlock or when muted. */
+    /**
+     * Plays one click within `variation.timing` seconds (pan -1..1). No-op
+     * before unlock or when muted.
+     */
     play(pan = 0): void {
-        const { context, master, buffer } = this;
+        const { context, master, buffers } = this;
         if (
             !this.ready ||
             this.destroyed ||
             this.silenced ||
             !context ||
             !master ||
-            !buffer ||
-            this.active >= this.maxVoices
+            buffers.length === 0
         ) {
             return;
         }
+        while (this.voices.length >= this.maxVoices) {
+            this.release(this.voices[0], context.currentTime);
+        }
+        const rate = 1 + (this.random() * 2 - 1) * this.pitchVariation;
+        const level = Math.max(0, 1 - this.random() * this.volumeVariation);
+        const delay = this.random() * this.timingVariation;
+        const take =
+            buffers.length === 1
+                ? 0
+                : Math.min(
+                      buffers.length - 1,
+                      Math.floor(this.random() * buffers.length)
+                  );
         const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.playbackRate.value =
-            1 + (this.random() * 2 - 1) * this.pitchVariation;
+        source.buffer = buffers[take];
+        source.playbackRate.value = rate;
         const gain = context.createGain();
-        gain.gain.value = Math.max(0, 1 - this.random() * this.volumeVariation);
+        gain.gain.value = level;
         const panner = context.createStereoPanner();
         panner.pan.value = Math.max(-1, Math.min(1, pan));
         source.connect(gain);
         gain.connect(panner);
         panner.connect(master);
-        this.active++;
+        const voice = { source, gain };
+        this.voices.push(voice);
         source.onended = () => {
-            this.active--;
+            this.forget(voice);
             source.disconnect();
             gain.disconnect();
             panner.disconnect();
         };
-        source.start(context.currentTime);
+        source.start(context.currentTime + delay);
     }
 
     /** Stops listening and releases audio; closes only a context it created. */
@@ -169,6 +223,7 @@ export class FlapSound {
         this.destroyed = true;
         this.unsubscribe();
         this.master?.disconnect();
+        this.clipper?.disconnect();
         if (this.ownsContext && this.context) {
             void this.context.close();
         }
@@ -185,25 +240,49 @@ export class FlapSound {
         }
         await context.resume();
         const master = context.createGain();
-        master.connect(context.destination);
+        const headroom = context.createGain();
+        headroom.gain.value = 1 / CLIP_RANGE;
+        const clipper = context.createWaveShaper();
+        clipper.curve = softClipCurve();
+        // No oversampling: its resampling filter rings past 1.0 on crisp
+        // clicks.
+        clipper.oversample = 'none';
+        master.connect(headroom);
+        headroom.connect(clipper);
+        clipper.connect(context.destination);
         this.master = master;
+        this.clipper = clipper;
         this.applyMasterGain();
-        this.buffer = this.synthBuffer(context);
         this.ready = true;
-        if (this.sample !== undefined) {
-            this.buffer = await loadSample(context, this.sample);
+        if (this.samples.length === 0) {
+            this.buffers = this.synthBuffers(context);
+            return;
+        }
+        const loads = await Promise.allSettled(
+            this.samples.map(sample => loadSample(context, sample))
+        );
+        this.buffers = loads.flatMap(load =>
+            load.status === 'fulfilled' ? [load.value] : []
+        );
+        const failed = loads.find(load => load.status === 'rejected');
+        if (failed) {
+            throw failed.reason;
         }
     }
 
-    private synthBuffer(context: AudioContext): AudioBuffer {
-        const samples = renderClick(context.sampleRate, this.synth);
-        const buffer = context.createBuffer(
-            1,
-            samples.length,
-            context.sampleRate
+    private synthBuffers(context: AudioContext): AudioBuffer[] {
+        const { sampleRate } = context;
+        return renderClickVariants(sampleRate, this.synth, SYNTH_VARIANTS).map(
+            samples => {
+                const buffer = context.createBuffer(
+                    1,
+                    samples.length,
+                    sampleRate
+                );
+                buffer.getChannelData(0).set(samples);
+                return buffer;
+            }
         );
-        buffer.getChannelData(0).set(samples);
-        return buffer;
     }
 
     private applyMasterGain(): void {
@@ -211,11 +290,51 @@ export class FlapSound {
             this.master.gain.value = this.silenced ? 0 : this.level;
         }
     }
+
+    /** Fades a voice out and stops it, freeing its slot now. */
+    private release(voice: Voice, now: number): void {
+        this.forget(voice);
+        voice.gain.gain.setTargetAtTime(0, now, STEAL_FADE);
+        voice.source.stop(now + STEAL_FADE * 5);
+    }
+
+    private forget(voice: Voice): void {
+        const index = this.voices.indexOf(voice);
+        if (index >= 0) {
+            this.voices.splice(index, 1);
+        }
+    }
+}
+
+/** Peaks up to this level reach the soft clipper's curve; louder hold at 1. */
+export const CLIP_RANGE = 4;
+/** Level where the soft clipper starts rounding peaks off. */
+export const CLIP_KNEE = 0.7;
+
+/**
+ * WaveShaper curve for input scaled down by {@link CLIP_RANGE}: unchanged up
+ * to {@link CLIP_KNEE}, then a tanh shoulder that never passes 1. Many flaps
+ * landing together can sum well past full scale; this rounds those peaks off
+ * instead of letting the output clip.
+ */
+export function softClipCurve(points = 2049): Float32Array<ArrayBuffer> {
+    const curve = new Float32Array(points);
+    for (let i = 0; i < points; i++) {
+        const x = ((2 * i) / (points - 1) - 1) * CLIP_RANGE;
+        const over = Math.abs(x) - CLIP_KNEE;
+        curve[i] =
+            over <= 0
+                ? x
+                : Math.sign(x) *
+                  (CLIP_KNEE +
+                      (1 - CLIP_KNEE) * Math.tanh(over / (1 - CLIP_KNEE)));
+    }
+    return curve;
 }
 
 async function loadSample(
     context: AudioContext,
-    sample: AudioBuffer | string
+    sample: FlapSample
 ): Promise<AudioBuffer> {
     if (typeof sample !== 'string') {
         return sample;
