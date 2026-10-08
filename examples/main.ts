@@ -11,6 +11,9 @@ import {
 import {
     CanvasFlapRenderer,
     colorFace,
+    type Ctx2D,
+    type FaceContext,
+    type FacePainter,
     type Finish,
     FLAP_THEMES,
     type FlapStyle,
@@ -337,6 +340,191 @@ function colours(): void {
     setInterval(shuffle, 2500);
 }
 
+/** Draws a whole picture into a `width × height` box. */
+type Picture = (ctx: Ctx2D, width: number, height: number) => void;
+
+/**
+ * A picture with a background and a centred shape in `color`. `draw` works in
+ * a 100 × 100 box and fills each part of the shape itself.
+ */
+function icon(
+    background: string,
+    color: string,
+    draw: (ctx: Ctx2D) => void
+): Picture {
+    return (ctx, width, height) => {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
+        const size = Math.min(width, height) * 0.8;
+        ctx.translate((width - size) / 2, (height - size) / 2);
+        ctx.scale(size / 100, size / 100);
+        ctx.fillStyle = color;
+        draw(ctx);
+    };
+}
+
+function polygon(ctx: Ctx2D, points: readonly [number, number][]): void {
+    ctx.beginPath();
+    points.forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.closePath();
+    ctx.fill();
+}
+
+const PICTURES: Record<string, Picture> = {
+    // The blank pad flap.
+    '': (ctx, width, height) => {
+        ctx.fillStyle = '#232326';
+        ctx.fillRect(0, 0, width, height);
+    },
+    plane: icon('#1d4f91', '#f4f1e8', ctx => {
+        ctx.translate(50, 50);
+        ctx.rotate(Math.PI / 4);
+        ctx.translate(-50, -50);
+        ctx.beginPath();
+        ctx.roundRect(44, 6, 12, 84, 6);
+        ctx.fill();
+        polygon(ctx, [
+            [44, 38],
+            [6, 58],
+            [6, 66],
+            [44, 56],
+            [56, 56],
+            [94, 66],
+            [94, 58],
+            [56, 38],
+        ]);
+        polygon(ctx, [
+            [46, 74],
+            [30, 86],
+            [30, 92],
+            [46, 86],
+            [54, 86],
+            [70, 92],
+            [70, 86],
+            [54, 74],
+        ]);
+    }),
+    arrow: icon('#f5c400', '#141414', ctx =>
+        polygon(ctx, [
+            [10, 38],
+            [52, 38],
+            [52, 16],
+            [90, 50],
+            [52, 84],
+            [52, 62],
+            [10, 62],
+        ])
+    ),
+    heart: icon('#efe9dc', '#e4572e', ctx => {
+        ctx.beginPath();
+        ctx.moveTo(50, 88);
+        ctx.bezierCurveTo(20, 66, 6, 48, 6, 32);
+        ctx.bezierCurveTo(6, 18, 17, 10, 29, 10);
+        ctx.bezierCurveTo(39, 10, 47, 16, 50, 25);
+        ctx.bezierCurveTo(53, 16, 61, 10, 71, 10);
+        ctx.bezierCurveTo(83, 10, 94, 18, 94, 32);
+        ctx.bezierCurveTo(94, 48, 80, 66, 50, 88);
+        ctx.fill();
+    }),
+    sun: icon('#669bbc', '#f3a712', ctx => {
+        ctx.beginPath();
+        ctx.arc(50, 50, 22, 0, Math.PI * 2);
+        ctx.fill();
+        for (let ray = 0; ray < 8; ray++) {
+            ctx.save();
+            ctx.translate(50, 50);
+            ctx.rotate((ray * Math.PI) / 4);
+            ctx.beginPath();
+            ctx.roundRect(-4, -48, 8, 16, 4);
+            ctx.fill();
+            ctx.restore();
+        }
+    }),
+};
+
+/**
+ * One picture spread across a grid of units, like an airline logo on a
+ * station board. Each column is its own single-unit field, so a painter can
+ * tell the units apart by `{ row, field }`: it draws the whole picture shifted
+ * by its unit's position, and the face keeps only that unit's slice.
+ */
+function tiledIcons(): void {
+    const cols = 6;
+    const rows = 5;
+    const tileCell = { w: 40, h: 48 };
+    const gap = 3;
+    const pictureWidth = cols * tileCell.w + (cols - 1) * gap;
+    const pictureHeight = rows * tileCell.h + (rows - 1) * gap;
+
+    // Every unit carries the same drum of pictures; only its slice differs.
+    const pictures = new FlapSequence(Object.keys(PICTURES));
+    const columns = Array.from({ length: cols }, (_, col) => `c${col}`);
+    const board = new FlapBoard({
+        rows,
+        schema: Object.fromEntries(
+            columns.map(name => [
+                name,
+                defineField({
+                    sequence: pictures,
+                    length: 1,
+                    unit: { flipDuration: 80 },
+                }),
+            ])
+        ),
+        stagger: { order: 'diagonal', step: 40 },
+    });
+
+    // The offset includes the gaps, as if the picture were printed across the
+    // modules: the gaps hide thin strips of it instead of stretching it.
+    const sliceOf = (col: number): FacePainter<string> =>
+        Object.assign(
+            (
+                ctx: Ctx2D,
+                flap: string,
+                _width: number,
+                _height: number,
+                context?: FaceContext
+            ) => {
+                const row = context?.row ?? 0;
+                // Restore the transform: the finish is baked in after this.
+                ctx.save();
+                ctx.translate(
+                    -col * (tileCell.w + gap),
+                    -row * (tileCell.h + gap)
+                );
+                PICTURES[flap]?.(ctx, pictureWidth, pictureHeight);
+                ctx.restore();
+            },
+            // Faces differ by row, so renderers must cache them per row.
+            { perRow: true }
+        );
+    new CanvasFlapRenderer({
+        canvas: canvasById('icons-canvas'),
+        target: board,
+        face: Object.fromEntries(
+            columns.map((name, col) => [name, sliceOf(col)])
+        ),
+        cell: tileCell,
+        gap: { field: gap, row: gap },
+        style: { radius: 3, hingeGap: 1, finish: 'satin' },
+    }).start();
+
+    // A message that shows one picture on every unit.
+    const showing = (picture: string) =>
+        Array.from({ length: rows }, () =>
+            Object.fromEntries(columns.map(name => [name, picture]))
+        );
+    const names = Object.keys(PICTURES).filter(name => name !== '');
+    const playAll = () =>
+        board.play(names.map(showing), { hold: 2500, loop: true });
+    for (const name of names) {
+        onClick(`icon-${name}`, () => board.show(showing(name)));
+    }
+    onClick('icons-play', playAll);
+    playAll();
+}
+
 grid();
 colours();
+tiledIcons();
 departures().catch(error => console.error(error));
