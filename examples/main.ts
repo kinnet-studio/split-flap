@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import {
     CHARSETS,
     defineField,
@@ -19,6 +20,16 @@ import {
 import { PixiFlapView } from '@kinnet-studio/split-flap/pixi';
 import { FlapSound } from '@kinnet-studio/split-flap/sound';
 import { Application } from 'pixi.js';
+
+// Flap recordings in examples/sounds/ (git-ignored, so they are never
+// committed) replace the synth click; without any, the synth plays.
+const recordings = Object.values(
+    import.meta.glob<string>('./sounds/*.{wav,mp3,ogg,m4a}', {
+        eager: true,
+        query: '?url',
+        import: 'default',
+    })
+);
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
 const cities = new FlapSequence([
@@ -204,13 +215,22 @@ async function departures(): Promise<void> {
 
     // Sound starts muted; the first click unlocks audio (browsers require a
     // user gesture) and toggles it on.
-    const sound = new FlapSound({ target: board, volume: 0.4, muted: true });
+    const sound = new FlapSound({
+        target: board,
+        volume: 0.4,
+        muted: true,
+        ...(recordings.length > 0 ? { sample: recordings } : {}),
+    });
+    const source =
+        recordings.length > 0 ? `${recordings.length} recordings` : 'synth';
     const soundButton = document.getElementById('sound');
     onClick('sound', () => {
         sound.unlock().catch(error => console.error(error));
         sound.muted = !sound.muted;
         if (soundButton) {
-            soundButton.textContent = sound.muted ? 'Sound: off' : 'Sound: on';
+            soundButton.textContent = sound.muted
+                ? 'Sound: off'
+                : `Sound: on (${source})`;
         }
     });
 }

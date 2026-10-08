@@ -423,6 +423,10 @@ bun run build
 bun run dev   # examples app
 ```
 
+The examples app plays the synth click. To hear real recordings instead, put
+audio files (`.wav`, `.mp3`, `.ogg`, `.m4a`) in `examples/sounds/` and restart
+`bun run dev`; the folder is git-ignored, so they stay on your machine.
+
 ## Releasing
 
 Releases are published from GitHub Actions: run the **Release** workflow on `main` (or a `version/*` branch for a patch to an older line).
