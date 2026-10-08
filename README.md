@@ -424,8 +424,9 @@ bun run dev   # examples app
 ```
 
 The examples app plays the synth click. To hear real recordings instead, put
-audio files (`.wav`, `.mp3`, `.ogg`, `.m4a`) in `examples/sounds/` and restart
-`bun run dev`; the folder is git-ignored, so they stay on your machine.
+audio files (`.wav`, `.mp3`, `.ogg`, `.m4a`) anywhere under `examples/sounds/`
+and reload the page; the Sound button then reads "Sound: on (N recordings)". The
+folder is git-ignored, so the files stay on your machine.
 
 ## Releasing
 

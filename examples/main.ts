@@ -21,14 +21,18 @@ import { PixiFlapView } from '@kinnet-studio/split-flap/pixi';
 import { FlapSound } from '@kinnet-studio/split-flap/sound';
 import { Application } from 'pixi.js';
 
-// Flap recordings in examples/sounds/ (git-ignored, so they are never
-// committed) replace the synth click; without any, the synth plays.
+// Flap recordings anywhere under examples/sounds/ (git-ignored, so they are
+// never committed) replace the synth click; without any, the synth plays.
 const recordings = Object.values(
-    import.meta.glob<string>('./sounds/*.{wav,mp3,ogg,m4a}', {
-        eager: true,
-        query: '?url',
-        import: 'default',
-    })
+    import.meta.glob<string>(
+        './sounds/**/*.{wav,WAV,mp3,MP3,ogg,OGG,m4a,M4A}',
+        { eager: true, query: '?url', import: 'default' }
+    )
+);
+console.info(
+    recordings.length > 0
+        ? `Sound: ${recordings.length} recordings from examples/sounds/`
+        : 'Sound: synth (no audio files found in examples/sounds/)'
 );
 
 const chars = FlapSequence.chars(`${CHARSETS.alphanumeric}:`);
