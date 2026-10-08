@@ -305,102 +305,6 @@ function grid(): void {
     show();
 }
 
-/** Spaces kept between the end of a marquee message and its next pass. */
-const MARQUEE_GAP = 3;
-
-/**
- * Every position of `text` sliding right to left through `width` units, one
- * character per frame. The last frame leads back into the first, so the
- * frames loop seamlessly. Short messages get a longer gap so they never show
- * twice at once.
- */
-function marqueeFrames(text: string, width: number): string[] {
-    const tape = Array.from(text);
-    const gap = Math.max(MARQUEE_GAP, width - tape.length);
-    tape.push(...Array.from({ length: gap }, () => ' '));
-    return tape.map((_, start) =>
-        Array.from(
-            { length: width },
-            (_, index) => tape[(start + index) % tape.length]
-        ).join('')
-    );
-}
-
-/**
- * Text scrolling sideways, one character per step. Like a real drum, each
- * unit flips through every character between the one it shows and the next
- * one, so it lags behind the text. The pace decides where that lag shows:
- *
- * - `settle`: a looping playlist moves on only once every unit has caught up
- *   (plus a short hold), so the scroll stalls on steps that need long runs.
- * - A number of ms: the text moves at that fixed pace regardless, and units
- *   that have not caught up chase their new character. A unit needs about
- *   half a drum of flips per character, so short steps or slow flaps leave
- *   the text unreadable.
- */
-function marquee(): void {
-    const width = 16;
-    const board = new FlapBoard({
-        rows: 1,
-        schema: {
-            text: textField({
-                sequence: FlapSequence.chars(
-                    `${CHARSETS.alphanumeric}.,:;!?'"&/+-`
-                ),
-                length: width,
-                unit: { flipDuration: 60 },
-            }),
-        },
-    });
-    new CanvasFlapRenderer({
-        canvas: canvasById('marquee-canvas'),
-        target: board,
-        face: textFace({
-            font: '600 26px ui-monospace, Menlo, monospace',
-            theme: 'solari',
-        }),
-        cell,
-        gap: { unit: 3 },
-        style: { ...style, hingeColor: FLAP_THEMES.solari.hinge },
-    }).start();
-
-    const input = document.getElementById('marquee-input');
-    const pace = document.getElementById('marquee-pace');
-    let timer: ReturnType<typeof setInterval> | undefined;
-    const scroll = () => {
-        clearInterval(timer);
-        const text =
-            input instanceof HTMLInputElement ? input.value.toUpperCase() : '';
-        const frames = marqueeFrames(text, width);
-        // The pace is 'settle' (NaN here) or a step length in ms.
-        const ms = pace instanceof HTMLSelectElement ? Number(pace.value) : NaN;
-        if (ms > 0) {
-            let index = 0;
-            const step = () => {
-                board.show([{ text: frames[index] }]);
-                index = (index + 1) % frames.length;
-            };
-            step();
-            timer = setInterval(step, ms);
-            return;
-        }
-        board.play(
-            frames.map(frame => [{ text: frame }]),
-            { hold: 60, loop: true }
-        );
-    };
-    onClick('marquee-scroll', scroll);
-    pace?.addEventListener('change', scroll);
-    // Scales flips (and playlist holds), not the fixed pace's timer.
-    const speed = document.getElementById('marquee-speed');
-    speed?.addEventListener('change', () => {
-        if (speed instanceof HTMLSelectElement) {
-            board.timeScale = Number(speed.value);
-        }
-    });
-    scroll();
-}
-
 function colours(): void {
     const palette = new FlapSequence([
         '#232326',
@@ -621,7 +525,6 @@ function tiledIcons(): void {
 }
 
 grid();
-marquee();
 colours();
 tiledIcons();
 departures().catch(error => console.error(error));

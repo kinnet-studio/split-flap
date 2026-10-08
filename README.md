@@ -263,40 +263,6 @@ board.show(Array.from({ length: rows }, () => row));
 
 The examples app (`bun run dev`) has a full version with four pictures.
 
-## Scrolling text (marquee)
-
-To scroll text sideways, show it one character further along at each step. A
-looping playlist takes the next step once the board has settled:
-
-```ts
-const width = 16;
-const board = new FlapBoard({
-    rows: 1,
-    schema: { text: textField({ sequence: chars, length: width }) },
-});
-
-// End with a gap, and keep the tape at least `width` long.
-const tape = Array.from('NOW BOARDING - GATE 12   ');
-const frames = tape.map((_, start) => [
-    {
-        text: Array.from(
-            { length: width },
-            (_, i) => tape[(start + i) % tape.length]
-        ).join(''),
-    },
-]);
-board.play(frames, { hold: 60, loop: true });
-```
-
-Like a real drum, each unit flips through every flap between its character
-and the next one, about half the drum per step, so the scroll pauses on steps
-that need long runs. Stepping on a timer instead (`board.show()` every N ms)
-keeps an even pace, but units that haven't caught up chase their new
-character, and the text breaks up when steps are short or flaps slow. For a
-smooth ticker without drum mechanics, use `unit: { cycle: 'direct' }`.
-
-The examples app lets you compare both paces at different flap speeds.
-
 ## React
 
 ```ts
